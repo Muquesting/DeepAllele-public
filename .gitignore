@@ -1,0 +1,11 @@
+*.egg-info
+data
+.vscode
+*__pycaches__
+*.pyc
+*ipynb_checkpoints
+explore
+*logs*
+output
+*.ckpt
+archive*
