@@ -14,7 +14,7 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 import pytorch_lightning as pl
 
 #sys.path.insert(0, '/homes/gws/aspiro17/DeepAllele/')  # adding the path
-from DeepAllele import model, data, tools,  surrogate_model
+from DeepAllele import model, data, tools,  surrogate_model 
 import DeepAllele
 #sys.path.pop(0)  
 
@@ -132,7 +132,8 @@ def dinuc_shuffle(seq, num_shufs=None, rng=None):
     return all_results if num_shufs else all_results[0]
 
 
-
+# TODO 
+# Replace with argument pointing to file for parameters.
 
 def load_saved_model(mh_or_sh = 'mh', sc_or_sum='sum', atac_or_chip='atac',pwk_or_spret='PWK',random_seed=0): 
     if atac_or_chip=='atac': 
@@ -165,7 +166,7 @@ def load_saved_model(mh_or_sh = 'mh', sc_or_sum='sum', atac_or_chip='atac',pwk_o
     curr_model.eval()
     return curr_model
 
-
+# We should have a file to define this
 def get_surrogate_model(mh_model, atac_or_chip='atac'):
     if atac_or_chip == 'atac': 
         surrogate = model.SeparateMultiHeadResidualCNN_DeepliftSurrogate(

@@ -9,3 +9,5 @@ explore
 output
 *.ckpt
 archive*
+*.backup
+scripts/makebashfrommd.py
