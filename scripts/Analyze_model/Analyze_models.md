@@ -4,43 +4,38 @@ Here, we demonstrate how one can use sequence attributions from the trained Deep
 
 
 ## 1. Make predictions with the model and determine trusted set of sequences
-
 No model is perfect. To determine which model predictions we can trust, we use the model's predictions for unseen sequences to determine for which it might have learned the correct mechanisms from other sequences. 
 
 ### Get models and processed data from the paper
-Use `download_models.sh` to download the processed data and trained models from Zenodo. This bash script also initializes PATH structure for `models`, `data` and `results`.
+Use `download_models.sh` to download the processed data and trained models from Zenodo. This bash script also initializes PATH structure for `atac/`, `chip/`, and `rna/` with `models/`, `data/` and `results/`.
 
 ### Set relevant PATHs for subsequent analysis
-
 ```
 # Set shortcuts to scripts, models, data, and location for output
 
 scriptdir=/PATH/to/DeepAllele-public/scripts/ #path to scripts
 intdir=${scriptdir}/Analyze_models/ $ path to analysis scripts
 
-modeldir=/PATH/to/models/ # path to model parameters
-datadir=/PATH/to/data/ # path to data 
-outdir=/PATH/to/results/ # path to results
+modeldir=/PATH/to/${dataset}/models/ # path to model parameters
+datadir=/PATH/to/${dataset}/data/ # path to data 
+outdir=/PATH/to/${dataset}/results/ # path to results
+# For example 
+dataset=atac0/ # for some ATAC-seq data set
 ```
 
 We assume that the results of this analysis will be saved in the following structure:
 ```
-${outdir}/${dataset}/${modeltype}/${initialization}/
+${outdir}/${modeltype}/${initialization}/
 
 # For example
-dataset=atac0 # Some ATAC data set
 modeltype=mh # for multi-head, 
 initialization=init0 # seed for model initialization
 ```
-
-We assume that the inputs and targets for each model are saved in the following structure:
-```
-${datadir}/${dataset}/
-```
+`initialization` can also be different architectures or anything that defines the models specific training run. It describes a variant of the model.
 
 We assume that your models are located in the following structure:
 ```
-${modeldir}/${dataset}/${modeltype}/${initialization}/
+${modeldir}/${modeltype}/${initialization}/
 ```
 
 ### Get one-hot encodings of test set sequences, and measured values
@@ -53,9 +48,9 @@ MISSING
 
 For all these analyses, we need one-hot encoded sequence pairs
 ```
-labels=${datadir}/${dataset}/seq_labels.npy
-seqs=${datadir}/${dataset}/seqs.npy
-vals=${datadir}/${dataset}/vals_obs_all.txt
+labels=${datadir}/seq_labels.npy
+seqs=${datadir}/seqs.npy
+vals=${datadir}/vals_obs_all.txt
 ```
 
 ### Get model predictions for one-hot encoded test sequences
@@ -65,22 +60,22 @@ Load the model and make predictions for all sequences
 MISSING
 
 # Returns
-preds=${outdir}/${dataset}/${modeltype}/${initialization}/ref_predictions.txt
+preds=${outdir}/${modeltype}/${initialization}/ref_predictions.txt
 ```
 
 ### Determine sequences for which model makes reasonable ratio predictions
 
 Ratio predictions are not perfectly scaled compared to the real data distributions because the majority of sites experiences no allelic imbalance. We use Z-score normalization to determine which ratio are significant.
 ```
-python ${initdir}zscore_variants.py $preds --column -2
+python ${initdir}zscore_datacolumn.py $preds --column -2
 
 # Use cut-offs of abs(ratio) > 1 and abs(z-score(pred.ratio))) > 1.65 to classify the data points
-python ${initdir}classify_prediction.py $vals ${preds%.txt}_zscore.txt -1 -1 1. 1.65
+python ${initdir}classify_prediction.py $vals ${preds%.txt}_zscore.txt 1. 1.65 --column1 -1 --column2 -1
 # Returns
 validlist=${preds%.txt}_zscore_-1_eval_on_${vals%.txt}_-1_cut1.0_and_1.65.txt
 
 # Plot measured allelic ratios versus predicted and color by class
-python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${dataset}/${modeltype}/${initialization}/LogAllelicRatio_Measuredvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist ${validlist} --contour log --cmap grey,red
+python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_Measuredvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist ${validlist} --contour log --cmap grey,red --legend
 ```
 
 ## 2. Compute ISM values for all variants between two alleles and identify main variant and its impact
@@ -91,8 +86,8 @@ python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-
 MISSING
 
 # Returns
-varA=${outdir}/${dataset}/${modeltype}/${initialization}/from_A/ISM_variant_effects.txt
-varB=${outdir}/${dataset}/${modeltype}/${initialization}/from_B/ISM_variant_effects.txt
+varA=${outdir}/${modeltype}/${initialization}/from_A/ISM_variant_effects.txt
+varB=${outdir}/${modeltype}/${initialization}/from_B/ISM_variant_effects.txt
 ```
 
 Average ISMs of variants from two alleles
@@ -100,7 +95,7 @@ Average ISMs of variants from two alleles
 ```
 python ${intdir}averageISM.py $varA $varB
 # Returns
-var=${outdir}/${dataset}/${modeltype}/${initialization}/ISM_avg_variant_effect.txt
+var=${outdir}/${modeltype}/${initialization}/ISM_avg_variant_effect.txt
 ```
 
 Compute the (prediction from) the sum of all ISMs
@@ -113,7 +108,7 @@ varpred=${var%.txt}_seqpred.txt
 ### Check how well the sum if individual variant effects represents predictions
 
 ```
-python ${intidir}scatter_comparison_plot.py $varpred $pred 'Sum ISM effects on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${dataset}/${modeltype}/${initialization}/LogAllelicRatio_SumVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red
+python ${intidir}scatter_comparison_plot.py $varpred $pred 'Sum ISM effects on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_SumVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red
 ```
 
 ### Determine main variant
@@ -123,21 +118,15 @@ python ${intdir}determine_main_variant.py $var
 mainvar=${var%.txt}_mainvar.txt
 ```
 
-Combine results and generte data file with measured, predicted, sum, main var
-
-```
-python ${intdir}combine4files.py $vals $preds $mainvar $varpred
-```
-
 ### Plot main variant effect versus predicted effect with coloring of predictable cases
 
 ```
-python ${intdir}scatter_comparison_plot.py $mainvar $pred 'Main variant ISM effect on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${dataset}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red
+python ${intdir}scatter_comparison_plot.py $mainvar $pred 'Main variant ISM effect on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red
 ```
 
 ### Plot main variant effect versus measured effect with coloring of predictable cases
 ```
-python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2-ratio' 'Main variant ISM effect on allelic log2-ratio' --column -1 -1 --savefig ${outdir}/${dataset}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvsmeasured_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red -xlim -2.5,3.5 -ylim -2.5,3.
+python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2-ratio' 'Main variant ISM effect on allelic log2-ratio' --column -1 -1 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvsmeasured_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red -xlim -2.5,3.5 -ylim -2.5,3.
 ```
 
 ## 3. Compute sequence attributions
@@ -149,17 +138,15 @@ MISSING
 python ${intdir}get_attributions.py some_input ...
 
 # Returns
-ism=${outdir}/${dataset}/${modeltype}/${initialization}/ism_res.npy
+ism=${outdir}/${modeltype}/${initialization}/ism_res.npy
 ```
 
-Subtract mean from ISM to get attribution maps 
-
+Subtract mean from ISM to get attribution maps.
 Attributions from ISM are generated from the zero-sum gauge of the linear approximation. 
-Data
 ```
 python ${intdir}correct_ism.py $ism
 # Returns
-ismatt=${outdir}/${dataset}/${modeltype}/${initialization}/ism_res.imp.npy
+ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
 ```
 
 ### Perform DeepLiftShap on sequences
@@ -169,28 +156,27 @@ MISSING
 python ${intdir}get_attributions.py some_input ...
 
 # Returns
-deeplift=${outdir}/${dataset}/${modeltype}/${initialization}/deeplift_res.npy
+deeplift=${outdir}/${modeltype}/${initialization}/deeplift_local_attribs.npy
 ```
 
 Subtract mean from DeepLift multipliers to get attribution maps.
-
 Multipliers represent local attributions, hypothetical attributions are generated from the zero-sum gauge of the linear approximation. Hypothetical attributions are more suited to detect motifs. Briefly, they determine the preference of the model for a all four bases at each position if that base was inserted into the sequence. This is similar to the concept of PWMs.
 ```
 MISSING
 python ${intdir}correct_deeplift.py $deeplift
 
 # Returns
-deepliftatt=${outdir}/${dataset}/${modeltype}/${initialization}/deeplift_res.imp.npy
+deepliftatt=${outdir}/${modeltype}/${initialization}/deeplift_local_attribs.imp.npy
 ```
 
 ### If available, check correlation between ISM from two models with different random initialization
 ```
 # Computes correlations between attributions maps and plots histgram
 
-ismatt0=${outdir}/${dataset}/${modeltype}/${initialization0}/ism_res.imp.npy
-ismatt1=${outdir}/${dataset}/${modeltype}/${initialization1}/ism_res.imp.npy
+ismatt0=${outdir}/${modeltype}/${initialization0}/ism_res.imp.npy
+ismatt1=${outdir}/${modeltype}/${initialization1}/ism_res.imp.npy
 
-python ${intdir}compute_attribution_correlation.py $ismatt0 $ismatt1 $labels $labels 'ISM_0 vs ISM_1' Correlation_hist_ism0_vs_ism1
+python ${intdir}compute_attribution_correlation.py $ismatt0 $ismatt1 $labels $labels 'ISM_0 vs ISM_1' ${outdir}/${modeltype}/Correlation_hist_ism0_vs_ism1.jpg --seqs $seqs $seqlabels input
 ```
 
 ### Visualize individual attribution maps
@@ -199,12 +185,14 @@ Plot attribution maps for both sequences and the variant effects for each varian
 ```
 # Separate attribution maps for input to visualization
 plotdir=${outdir}/attributions_plots
-python ${intdir}separate_attributionmaps.py ${labels} ${ismatt}
-python ${intdir}separate_attributionmaps.py ${labels} ${seqs}
+mkdir $plotdir
+mkdir ${datadir}/sequences
+python ${intdir}separate_attributionmaps.py ${labels} ${ismatt} --outdir $plotdir
+python ${intdir}separate_attributionmaps.py ${labels} ${seqs} --outdir ${datadir}/sequences
 
 # Plot individual attribution maps of selected regions
-ism_example=${outdir}seq_idx_15046_ImmGenATAC1219.peak_218540_ism_res.imp.npy
-seq_example=${datadir}seq_idx_15046_ImmGenATAC1219.peak_218540_ism_res.imp.npy
+ism_example=${outdir}seq_idx_99_*_ism_res.imp.npy
+seq_example=${datadir}seq_idx_99_*.npy
 python ${intdir}plot_attributions.py $ism_example ${seq_example} --ratioattributions
 ```
 
@@ -226,7 +214,7 @@ seqletloc=${outdir}seq_labelsism_res.impcut1.96maxg1minsiq4_otherloc.txt
 ### Cluster extracted motifs
 Seqlets are aligned using Pearson correlation coefficient. The p-values for the correlation are computed and used for agglomerative clustering with complete linkage, i.e all seqlets in one cluster have at least a correlation equivalent to 0.01 to all other sequences in the cluster. Alternatively, other linkages or clustering methods can be used.
 ```
-python ${intdir}cluster_pwms.py $seqlets complete 0.01 --save_stats --clusteronlogp --clusternames --reverse_complement --njobs 80 
+python ${intdir}cluster_seqlets.py $seqlets complete 0.01 --save_stats --clusteronlogp --clusternames --reverse_complement --njobs 80 
 or --torch_similarity
 # Returns combined motifs for all clusters
 clustermotifs=${seqlets%.meme}_clusteredcomplete0.01pvalclustpfms.txt
@@ -262,7 +250,7 @@ joinedmotifperc=${clusterlist20%list.txt}joined0.2pfmfeats.npz
 
 Filter and normalize CWMs to classical pwms for usage with tomtom
 ```
-python ${intdir}pwmtomeme.py $clustermotifs --exppwms --normpwms --list $clusterlist20
+python ${intdir}parse_motifs_tomeme.py.py $clustermotifs --exppwms --normpwms --list $clusterlist20
 # Returns normalized Position probability matrices
 clustermeme=${seqlets%.meme}_clusteredcomplete0.01pvalclustpfms.meme
 ```
@@ -278,7 +266,7 @@ clustertomtom={clustermeme%.meme}.tomtom.tsv
 
 Make a name file for the combined clusters from tomtom tsv
 ```
-python ${intdir}replace_pwmname_tomtom.py ${clustertomtom} q 0.05 $clustermeme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
+python ${intdir}replace_motifname_with_tomtom_match.py ${clustertomtom} q 0.05 $clustermeme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
 clustertfname={clustertomtom%.tsv}.TF.txt
 ```
 
@@ -286,7 +274,7 @@ clustertfname={clustertomtom%.tsv}.TF.txt
 
 Normalize the joined and combined PWM from the previous plot
 ```
-python ${intdir}pwmtomeme.py $joinedmotifs --normpwms
+python ${intdir}parse_motifs_tomeme.py.py $joinedmotifs --normpwms
 ```
 
 Run tomtom
@@ -296,7 +284,7 @@ tomtom -thresh 0.2 -dist pearson -text ${joinedmotifs%.txt}.meme $tfdatabase > $
 
 #### Make a name file for the combined clusters from tomtom tsv
 ```
-python ${intdir}replace_pwmname_tomtom.py ${joinedmotifs%.txt}.tomtom.txt q 0.05 ${joinedmotifs%.txt}.meme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
+python ${intdir}replace_motifname_with_tomtom_match.py ${joinedmotifs%.txt}.tomtom.txt q 0.05 ${joinedmotifs%.txt}.meme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
 ```
 
 #### Plot the compact tree with the associated TFs and short names for the clusters
