@@ -20,8 +20,8 @@ if __name__ == '__main__':
     if args.compute_mean:
         args.mean = np.mean(z)
     z -= args.mean
-    
-    z = z/np.std(z)
+    # Compute std to defined mean
+    z = z/np.sqrt(np.mean(z**2))
     f[:,args.column] = z
     f = f[:,[0,args.column]]
     np.savetxt(outname, f, fmt = '%s')

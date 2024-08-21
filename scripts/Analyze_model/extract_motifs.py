@@ -1,136 +1,108 @@
+
 import numpy as np
 import sys, os
-from align_seq import align_onehot
+from DeepAllele.motif_analysis import find_motifs, align_onehot
+from DeepAllele.io import write_meme_file
+import argparse
+from scipy.stats import pearsonr
 
-def write_meme_file(pwm, pwmname, alphabet, output_file_path):
-    """[summary]
-    write the pwm to a meme file
-    Args:
-        pwm ([np.array]): n_filters * 4 * motif_length
-        output_file_path ([type]): [description]
-    """
-    n_filters = len(pwm)
-    print(n_filters)
-    meme_file = open(output_file_path, "w")
-    meme_file.write("MEME version 4 \n")
-    meme_file.write("ALPHABET= "+alphabet+" \n")
-    meme_file.write("strands: + -\n")
-
-    print("Saved PWM File as : {}".format(output_file_path))
-
-    for i in range(0, n_filters):
-        meme_file.write("\n")
-        meme_file.write("MOTIF %s \n" % pwmname[i])
-        meme_file.write("letter-probability matrix: alength= "+str(len(alphabet))+" w= %d \n"% np.count_nonzero(np.sum(pwm[i], axis=0)))
-
-        for j in range(0, np.shape(pwm[i])[-1]):
-            for a in range(len(alphabet)):
-                if a < len(alphabet)-1:
-                    meme_file.write(str(pwm[i][ a, j])+ "\t")
-                else:
-                    meme_file.write(str(pwm[i][ a, j])+ "\n")
-
-    meme_file.close()
-
-
-
-def find_motifs(a, s, cut, mg, msig, avg = True):
+def check_attributions(att):
+    pearson=pearsonr(att[...,0].flatten(), att[...,1].flatten())[0]
+    if pearson < 0:
+        print(Warning(f'It seems like your attributions in allele A and B are anticorrelated, which indicates that you should use --ratioattributions {pearson}'))
     
-    # Determine significant bases either based on all hypothetical attributions or only on the ones at the reference
-    if avg:
-        aloc = np.sum(np.absolute(a*s), axis = -1) >= cut
-    else:
-        aloc = np.sum(np.absolute(a) >= cut, axis = -1) > 0 # find locations where significant, > cut
-    
-    # Find motifs only based on what is present in the sequence, not what model would prefer
-    a = -np.sum(a*s, axis = -1) # compute effect at reference
-    
-    sign = np.sign(a) # get sign of effects
+def check_decimal(r):
+    pot = 10
+    i = -1
+    while True:
+        if r> pot**i:
+            return i +1
+        i -= 1
 
-    motiflocs = []
 
-    gap = mg +1 # gapsize count
-    msi = 1 # sign of motif
-    potloc = [] # potential location of motif
-    i = 0 
-    while i < len(a):
-        #print(potloc, gap)
-        if aloc[i]: # if location significant
-            if len(potloc) == 0: # if potloc just started
-                msi = np.copy(sign[i]) # determine which sign the entire motif should have
-            if sign[i] == msi: # check if base has same sign as rest of motif
-                potloc.append(i)
-                gap = 0
-            elif msi *np.mean(a[max(0,i-mg): min(len(a),i+mg+1)]) < cut: # if sign does not match the sign of rest, then treat as gap
-                gap += 1
-                if gap > mg: # check that gap is still smaller than maximum gap size
-                    if len(potloc) >= msig: 
-                        motiflocs.append(potloc)
-                        #print(a[potloc], a[potloc[0]:potloc[-1]])
-                    if len(potloc) > 0:
-                        i -= gap
-                    gap = mg + 1
-                    potloc = []
-        elif msi *np.mean(a[max(0,i-mg): min(len(a),i+mg+1)]) < cut:
-            gap +=1
-            if gap > mg:
-                if len(potloc) >= msig:
-                    motiflocs.append(potloc)
-                    #print(a[potloc], a[potloc[0]:potloc[-1]])
-                if len(potloc) > 0:
-                    i -= gap
-                gap = mg + 1
-                potloc = []
-        i += 1
-    if len(potloc) >= msig:
-        motiflocs.append(potloc)
-    return motiflocs
+
 
 if __name__ == '__main__':
-    statfile = sys.argv[1] # seq_labels
-    atts = sys.argv[2] # deeplift attributions 
-    seqs = sys.argv[3] # one-hot encoded sequences
-    cut = float(sys.argv[4]) # significance cut off
-    maxgap = int(sys.argv[5]) # max gap size
-    minsig = int(sys.argv[6]) # minimum number of significant bases
-    avg = True # whether to determine significance on reference or on all base effects
+    
+    parser = argparse.ArgumentParser(
+                    prog='extract_motifs',
+                    description='extracts motifs from attributions based on their height and subsequent size')
+    parser.add_argument('seqlabels', type=str)
+    parser.add_argument('atts', type=str)
+    parser.add_argument('seqs', type=str)
+    parser.add_argument('--cut', type=float, default = 1.96, help='Z-score cut off for calling significance of attributions')
+    parser.add_argument('--maxgap', type=int, default = 1, help = 'Maximum number of gap bases')
+    parser.add_argument('--minsig', type=int, default = 4, help='Minimum number of subsequent significant bases to call something a motif.')
+    
+    parser.add_argument('--atreference', action='store_false', help='If True, uses attribution at reference to extract motifs, otherwise, uses the max attribution at a given position')
+    parser.add_argument('--normed', action='store_false', help='If True attributions will be normalized before ')
+    parser.add_argument('--ratioattributions', action='store_false', help='If True attributions are coming from the ratio head and need to be adjusted for sign')
+    parser.add_argument('--outname', type=str, default = None)
+    parser.add_argument('--verbose', action='store_true')
+    
+    args = parser.parse_args()
+    
+    
+    outname = args.outname
+    if outname is None:
+        outname = os.path.splitext(args.atts)[0]+'_seqlets.cut'+str(args.cut)+'maxg'+str(args.maxgap)+'minsig'+str(args.minsig)
 
-
-    outname = os.path.splitext(statfile)[0]+os.path.splitext(atts)[0]+'cut'+str(cut)+'maxg'+str(maxgap)+'minsiq'+str(minsig)
-
-    stats = np.load(statfile)
-    atts = np.load(atts)
-    seqs = np.load(seqs)
+    stats = np.load(args.seqlabels)
+    atts = np.load(args.atts)
+    seqs = np.load(args.seqs)
 
     anames = [] # names of motifs
     amotifs = [] # motifs taken from z-scored ism
     ameans = [] # mean value of motifs
+    amax = []
     astats = [] # statistics each input, how many motifs in each variant.
     otherloc = [] # location in the other sequence
     ameandiff = [] # difference of attributions between two sequences 
-
+    amaxdiff = []
+    
     z = 1
-    if '--normed' in sys.argv:
-        z=np.sqrt(np.mean(atts**2))
+    if args.normed:
+        z=np.sqrt(np.mean(atts**2)) # compute standard deviation to mean = 0
+    ro = abs(check_decimal(z) -3) # estimate rounding precision for mean, max stats
 
+
+    names = []
     for s, stat in enumerate(stats):
         name = 'seq_idx_'+str(s)+'_'+stat
         ism = atts[s]
-        if '--ratioattributions' in sys.argv:
+        names.append(name)
+        if args.ratioattributions:
             ism[...,-1] = -ism[...,-1]
-        
+        if args.verbose:
+            print(name)
+            check_attributions(ism)
+        elif s%1000 == 0:
+            print(f'{s}/{len(stats)}')
         seqonehot = seqs[s]
         lseqs = [len(np.where(seqonehot[:,:,j] == 1)[0]) for j in range(2)]
-        seqo = align_onehot(seqonehot[None]) # align sequences to match motif locations for 'common'
-        align = seqo[-1] # location of bases in aligned sequences
-        seqo = seqo[:2] # translation of location of bases in first and second sequence. 
-        print(name)
+        
+        seqo = align_onehot(seqonehot) # align sequences to match motif locations for 'common'
+        align = seqo[-2:] # location of bases in aligned sequences
+        seqot = seqo[:2] # translation of location of bases in first and second sequence. 
+        # only consider positions that were covered by both sequences in the alignment
+        seqo = []
+        seqo.append(seqot[0][np.isin(align[0], align[1])])
+        seqo.append(seqot[1][np.isin(align[1], align[0])])
+        
         zsm = ism/z # z-score norm ism with std
         seqmotifs = []
+        
         for j in range(2): # iterate over both seqences
-            motifs = find_motifs(zsm[:lseqs[j],:,j], seqonehot[:lseqs[j], :,j], cut, maxgap, minsig, avg = avg) # find the motifs in the ISM
+            if args.atreference:
+                refatts = np.sum(zsm[:lseqs[j],:,j] * seqonehot[:lseqs[j], :,j],axis =1)
+            else:
+                refatts = np.argmax(np.absolute(zsm[:lseqs[j],:,j]), axis = 1)
+                refatts = zsm[np.arange(lseqs[j]),refatts,j]
+            motifs = find_motifs(refatts, args.cut, args.maxgap, args.minsig) # find the motifs in the ISM
             seqmotifs.append(motifs)
-            print(len(motifs))
+            if args.verbose:
+                print(len(motifs), 'motifs found for allele', j)
+        
         # determine if the motifs are present in both sequences from the location of these bases in the other sequence
         common = [np.zeros(len(seqmotifs[j]), dtype = int) for j in range(2)]
         theotherloc = [[] for j in range(2)]
@@ -152,30 +124,37 @@ if __name__ == '__main__':
         for j in range(2):
             for i, smo in enumerate(seqmotifs[j]):
                 mot = zsm[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j] # saved pwm is taken from zscored ism to align them
-                motmean = np.mean(-np.sum(ism[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j], axis = -1)/3) # mean is computed from original isms
+                motf = ism[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j] * seqonehot[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j]
+                motmean = -np.mean(motf)*4 # mean is computed from original isms
+                motmax = -motf[np.argmax(np.abs(motf))//motf.shape[1], np.argmax(np.abs(motf))%motf.shape[1]]
                 # compute mean of the same bases in the other sequence to get delta mean
                 altlocmot = seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]
                 # some bases might be not present because of insertions
                 if len(altlocmot) > 0:
-                    altmotmean = np.mean(-np.sum(ism[np.amin(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]):np.amax(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]) +1,:, j-1], axis = -1)/3)
+                    altmot = ism[np.amin(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]):np.amax(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]) +1,:, j-1] * seqonehot[np.amin(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]):np.amax(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]) +1,:, j-1]
+                    altmotmean=-np.mean(altmot)*4
+                    altmotmax=-altmot[np.argmax(np.abs(altmot))//altmot.shape[1],np.argmax(np.abs(altmot))%altmot.shape[1]]
                 else:
                     altmotmean = 0
                 motmeandiff = altmotmean - motmean
+                motmaxdiff = altmotmax-motmax
                 # use sign(mean) * z-score attribution --> pwm file npz
                 mot = mot * np.sign(motmean) # adjust signs to make comparable and only align motifs with positive correlation
                 # also save file that contains information about where to find this motif in the other sequence
                 otherloc.append(','.join(np.array(theotherloc[j][i]).astype(str)))
-                amotifs.append(mot.T)
+                amotifs.append(np.around(mot,2).T)
                 # name by seq, start-end, and j, common or not --> pwm file
                 anames.append(name+'_'+str(seqmotifs[j][i][0])+'-'+str(seqmotifs[j][i][-1])+'_'+str(j)+'_'+str(common[j][i]))
                 #print(anames[-1])
                 ameans.append(motmean)
                 ameandiff.append(motmeandiff)
+                amax.append(motmax)
+                amaxdiff.append(motmaxdiff)
 
     np.savetxt(outname+'_otherloc.txt' ,np.array([anames, otherloc]).T, fmt = '%s')
-    np.savetxt(outname+'_meanatt.txt' ,np.array([anames, ameans, ameandiff]).T, fmt = '%s')
-    np.savetxt(outname+'_seqmotstats.txt' ,np.append(stats[:,[0]], np.array(astats).astype(int), axis = 1), fmt = '%s')
-    write_meme_file(amotifs, anames, 'ACGT', outname+'_attmotifs.meme')
+    np.savetxt(outname+'_seqleteffects.txt' ,np.array([anames, np.around(ameans,ro), np.around(ameandiff,ro), np.around(amax,ro), np.around(amaxdiff,ro)]).T, fmt = '%s', header = 'seqlet_idx mean_effect delta_mean_effect max_effect delta_max_effect')
+    np.savetxt(outname+'_seqmotifstats.txt' ,np.append(np.array(names).reshape(-1,1), np.array(astats).astype(int), axis = 1), fmt = '%s', header = 'seq_idx common_in_A common_in_B unique_in_A unique_in_B')
+    write_meme_file(amotifs, anames, 'ACGT', outname+'_seqlets.meme')
 
 
 

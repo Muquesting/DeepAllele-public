@@ -1,27 +1,30 @@
 import numpy as np
 import sys, os
 
-clustfile=np.genfromtxt(sys.argv[1], dtype = str)
+'''
+Returns file with percentage of appearances in all sequences
+'''
 
-seqs = np.array([n.split('_')[2] for n in clustfile[:,0]])
-useqs = np.unique(seqs)
+if __name__ == '__main__':
+    
+    clustfile=np.genfromtxt(sys.argv[1], dtype = str)
 
-clusternames = clustfile[:,1].astype(int)
-ucluster = np.unique(clusternames)
+    seqs = np.array([n.split('_')[2] for n in clustfile[:,0]])
+    useqs = np.unique(seqs)
 
-nseq = np.zeros(len(ucluster), dtype = float)
-for c, uc in enumerate(ucluster):
-    nseq[c] = len(np.unique(seqs[clusternames == uc]))
+    clusternames = clustfile[:,1].astype(int)
+    ucluster = np.unique(clusternames)
 
-# appearance in percent of sequences with a motif
-nseq = np.around(nseq/2/len(useqs) *100,2)
+    nseq = np.zeros(len(ucluster), dtype = float)
+    for c, uc in enumerate(ucluster):
+        nseq[c] = len(np.unique(seqs[clusternames == uc]))
 
-uclustnames = np.array(['Cluster_'+str(u) for u in ucluster])
-np.savetxt(os.path.splitext(sys.argv[1])[0]+'_motifpercinseq.txt', np.array([uclustnames, nseq]).T, fmt = '%s')
+    # appearance in percent of sequences with a motif
+    nseq = np.around(nseq/2/len(useqs) *100,2)
 
-sort = np.argsort(-nseq)
-for s in sort:
-    print(ucluster[s], nseq[s])
-    sys.exit()
+    uclustnames = np.array(['Cluster_'+str(u) for u in ucluster])
+    np.savetxt(os.path.splitext(sys.argv[1])[0]+'_motifpercinseq.txt', np.array([uclustnames, nseq]).T, fmt = '%s')
+    
+    
 
 

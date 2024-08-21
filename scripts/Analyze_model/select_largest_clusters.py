@@ -1,23 +1,30 @@
 import numpy as np
 import sys, os
 
-clusters = np.genfromtxt(sys.argv[1], dtype = str)
-ncut = int(sys.argv[2])
+'''
+Writes list with cluster ids of clusters that are larger than ncut
+'''
 
-uclust, nclust = np.unique(clusters[:,1], return_counts = True)
+if __name__ == '__main__':
+        
+    clusters = np.genfromtxt(sys.argv[1], dtype = str)
+    ncut = int(sys.argv[2])
 
-unclust, nnclust = np.unique(nclust, return_counts = True)
-sort = np.argsort(unclust)
-unclust, nnclust = unclust[sort], nnclust[sort]
-for u, unc in enumerate(unclust):
-    print(unc, nnclust[u])
+    uclust, nclust = np.unique(clusters[:,1], return_counts = True)
 
-uclust =uclust[nclust >= ncut]
+    unclust, nnclust = np.unique(nclust, return_counts = True)
+    sort = np.argsort(unclust)
+    unclust, nnclust = unclust[sort], nnclust[sort]
+    if '--verbose' in sys.argv:
+        for u, unc in enumerate(unclust):
+            print(unc, nnclust[u])
 
-print(len(uclust))
+    uclust =uclust[nclust >= ncut]
 
-uclust=['Cluster_'+str(uc) for uc in uclust]
+    print(f'Clusters larger than {ncut}: {len(uclust)}')
 
-np.savetxt(os.path.splitext(sys.argv[1])[0]+'_Ngte'+str(ncut)+'list.txt', uclust, fmt = '%s')
+    uclust=['Cluster_'+str(uc) for uc in uclust]
+
+    np.savetxt(os.path.splitext(sys.argv[1])[0]+'_Ngte'+str(ncut)+'list.txt', uclust, fmt = '%s')
 
 

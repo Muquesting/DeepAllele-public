@@ -201,24 +201,24 @@ python ${intdir}plot_attributions.py $ism_example ${seq_example} --ratioattribut
 
 ### Identify motifs in attributions and extract their attributions scores for all four bases
 
-Attributions are normalized to Z-scores and significant positions are determined with a threshold of 1.96. Seqlets are extracted if 4 or more subsequent positions with at max one gap are siginficant. Moreover, statistics are kept about the location of the seqlet in both sequences (after alignment), and the mean difference of these motifs for downstream analysis. 
+Attributions are normalized to Z-scores and significant positions are determined with a threshold of 1.96. Seqlets are extracted if 4 or more subsequent positions with at max one gap are siginficant. Seqlets are saved in .meme file with the direction of the attributions being adjusted to the sign of their mean. Moreover, statistics are kept about the location of the seqlet in both sequences (after alignment), and the mean difference of these motifs for downstream analysis. 
 
 ```
 python ${intdir}extract_motifs.py $labels $ismatt $seqs 1.96 1 4 --normed --ratioattributions
 # Returns
-seqlets=${outdir}seq_labelsism_res.impcut1.96maxg1minsiq4_attmotifs.meme
-seqletstats=
-seqletloc=${outdir}seq_labelsism_res.impcut1.96maxg1minsiq4_otherloc.txt
+seqlets=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqlets.meme # Z-scored and sign adjusted seqlets from attribution map
+seqstats=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqmotifstats.txt # Motif statistics for each sequence, how many common, and how many unique
+seqleteffects=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqleteffects.txt # Mean effect, Delta mean, Max effect, delta max effect
+seqletloc=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_otherloc.txt # Locations of motif in other allele
 ```
 
 ### Cluster extracted motifs
 Seqlets are aligned using Pearson correlation coefficient. The p-values for the correlation are computed and used for agglomerative clustering with complete linkage, i.e all seqlets in one cluster have at least a correlation equivalent to 0.01 to all other sequences in the cluster. Alternatively, other linkages or clustering methods can be used.
 ```
-python ${intdir}cluster_seqlets.py $seqlets complete 0.01 --save_stats --clusteronlogp --clusternames --reverse_complement --njobs 80 
-or --torch_similarity
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.01 --save_stats --clusteronlogp --clusternames --reverse_complement
 # Returns combined motifs for all clusters
-clustermotifs=${seqlets%.meme}_clusteredcomplete0.01pvalclustpfms.txt
-seqletclusters=${seqlets%.meme}_clusteredcomplete0.01pvalclust.txt
+clustermotifs=${seqlets%.meme}_cldcomplete0.01pvpfms.meme
+seqletclusters=${seqlets%.meme}_cldcomplete0.01pv.txt
 ```
 
 Determine the percentage of sequences with a motif that this cluster appears in

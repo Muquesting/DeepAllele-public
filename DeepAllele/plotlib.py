@@ -3,60 +3,9 @@ import sys, os
 import matplotlib.pyplot as plt
 import logomaker as lm
 import pandas as pd
-from Bio.Align import PairwiseAligner
+from .motif_analysis import align_onehot 
 
-def align_seq(s1, s2):
-    '''
-    Aligns two sequences and returns indexes to match bases. To assign values
-    of the original_array to positions in the alignment use: 
-    aligned_seq1[l1] = original_seq1[i1]
-    Returns
-    -------
-    i1 : 
-        indexes of bases in sequences1 one in original sequence without gaps
-    l1 : 
-        indexes of bases in sequence1 in alignment (gaps will be left out)
-    i2 : 
-        indexes of bases in sequence2 one in original sequence without gaps
-    l2 : 
-        indexes of bases in sequence2 in alignment (gaps will be left out)
-    '''
-    aligner = PairwiseAligner()
-    aligner.open_gap_score = -1
-    aligner.extend_gap_score = -0.5
-    aligner.match_score = 1
-    aligner.mismatch_score = 0
-    alignments = aligner.align(s1,s2)
-    best = alignments[0]
-    i1, i2 = [],[]
-    l1, l2 = [],[]
-    j = 0
-    k = 0
-    for i in range(len(best[0])):
-        if best[0][i] != '-':
-            i1.append(j)
-            l1.append(i)
-            j += 1
-        if best[1][i] != '-':
-            i2.append(k)
-            l2.append(i)
-            k += 1
-    return np.array(i1),np.array(i2),np.array(l1),np.array(l2)
 
-def seq_from_onehot(x, nts = 'ACGT'):
-    '''
-    Transforms one-hot encoding into sequence. 
-    Expects 'ACGT' order
-    '''
-    order = np.where(x == 1)[1]
-    seq = ''.join(np.array(list(nts))[order])
-    return seq
-
-def align_onehot(seq):
-    s1 = seq_from_onehot(seq[...,0])
-    s2 = seq_from_onehot(seq[...,1])
-    i1, i2, l1, l2 = align_seq(s1,s2)
-    return i1, i2, l1, l2
 
 def add_frames(att, locations, colors, ax):
     '''
@@ -96,7 +45,7 @@ def _plot_attribution(att, ax, nts = list('ACGT'), labelbottom=False, bottom_axi
     if xticklabels is not None:
         ax.set_xticklabels(xticklabels)
 
-def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True):
+def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, unit=0.04, xticks = None, xticklabels = None):
     '''
     Plots attributions of two sequences and illustrates the variant effect sizes
     
@@ -127,10 +76,15 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
     
     if seq_based:
         att = seq * att
-
+        
     # Align one-hot encodings to visualize on top of each other
     si1, si2, ti1, ti2 = align_onehot(seq)
     maxlen = np.amax(np.concatenate([ti1,ti2]))+1
+    
+    if xticks is not None:
+        if xticklabels is None:
+            xticklabels = xticks
+        xticks = ti1[xticks]
     
     attA = np.zeros((maxlen,4))
     attB = np.zeros((maxlen,4))
@@ -156,10 +110,15 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
     maxa,maxb = np.array(np.sum(np.ma.masked_less(attA,0), axis = -1)), np.array(np.sum(np.ma.masked_less(attB,0), axis = -1))
     
     attlim = [min(np.amin(np.append(mina,minb)),0),np.amax(np.append(maxa,maxb))]
-
-    fig = plt.figure(figsize = (0.04*maxlen, 3+3*int(add_perbase)))
     
-    ax0 =  fig.add_subplot(4+3*int(add_perbase), 1, 1)
+    ah = 25
+    buff = 2
+    gN = (3*(ah+buff)+3*(4+buff)*int(add_perbase))
+    w, h = unit*maxlen, gN*unit
+    fig = plt.figure(figsize = (w, h))
+    spec = fig.add_gridspec(ncols=1, nrows=gN)
+    
+    ax0 =  fig.add_subplot(spec[:ah,:])
     _plot_attribution(attA, ax0, ylabel = 'B6', ylim = attlim)
     
 
@@ -170,14 +129,13 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
         add_frames(attA, locations, colors, ax0)
     
     if add_perbase: # add another subplot with a heatmap for per base effecst
-        ax0b =  fig.add_subplot(4+3*int(add_perbase), 1, 2)
+        ax0b =  fig.add_subplot(spec[ah+buff:ah+buff+4,:])
         ax0b.tick_params(bottom = False, labelbottom = False, labelleft = False, left = False)
-        ax0b.imshow(pbattA.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r')
+        ax0b.imshow(pbattA.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r', aspect = 'auto')
 
-    ax1 =fig.add_subplot(4+3*int(add_perbase), 1, 2+1*int(add_perbase))
+    ax1 =fig.add_subplot(spec[ah+buff+(4+buff)*int(add_perbase):2*ah+buff+(4+buff)*int(add_perbase),:])
     _plot_attribution(attB, ax1, ylabel = 'CAST', ylim = attlim)
-
-
+    
     if motifs is not None:
         mask = motifs[:,-2] == 1
         colors = motifs[mask,-1]
@@ -185,26 +143,30 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
         add_frames(attB, locations, colors, ax1)
 
     if add_perbase:
-        ax1b =  fig.add_subplot(4+3*int(add_perbase), 1, 4)
+        ax1b =  fig.add_subplot(spec[2*(ah+buff)+(4+buff)*int(add_perbase):2*(ah+buff)+((4+buff)+4)*int(add_perbase),:])
         ax1b.tick_params(bottom = False, labelbottom = False, labelleft = False, left = False)
-        ax1b.imshow(pbattB.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r')
+        ax1b.imshow(pbattB.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r', aspect = 'auto')
 
     if plot_difference:
         # Plot the difference between the two attributions
-        axf =  fig.add_subplot(4+3*int(add_perbase),1,3+2*int(add_perbase))
+        axf =  fig.add_subplot(spec[2*(ah+buff)+2*(4+buff)*int(add_perbase):2*(ah+buff)+ah+2*(4+buff)*int(add_perbase),:])
         
         if plot_effect_difference:
             sumeffect = np.sum(fracAB*np.absolute(seqAB), axis = 1)
             fraclim = [min(np.amin(sumeffect),attlim[0]), max(np.amax(sumeffect),attlim[1])]
-            _plot_attribution(fracAB*np.absolute(seqAB),axf, labelbottom = True, bottom_axis = True, ylabel = 'Effect\nsize', ylim = fraclim, xticks = [0,125,250], xticklabels=['-125', '0', '125'])
+            _plot_attribution(fracAB*np.absolute(seqAB),axf, labelbottom = not add_perbase, bottom_axis = not add_perbase, ylabel = 'Effect\nsize', ylim = fraclim, xticks = xticks, xticklabels=xticklabels)
         else:
             sumeffect = np.sum(fracAB, axis = 1)
             fraclim = [min(np.amin(sumeffect),attlim[0]), max(np.amax(sumeffect),attlim[1])]
-            _plot_attribution(fracAB,axf, labelbottom = True, bottom_axis = True, ylabel = 'Effect\nsize', ylim = fraclim, xticks = [0,125,250], xticklabels=['-125', '0', '125'])
+            _plot_attribution(fracAB,axf, labelbottom = not add_perbase, bottom_axis = not add_perbase, ylabel = 'Effect\nsize', ylim = fraclim, xticks = xticks, xticklabels=xticklabels)
 
         if add_perbase:
-            axfb =  fig.add_subplot(4+3*int(add_perbase), 1, 6)
-            axfb.tick_params(bottom = False, labelbottom = False, labelleft = False, left = False)
-            axfb.imshow(pbattA.T-pbattB.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r')
+            axfb =  fig.add_subplot(spec[3*(ah+buff)+2*(4+buff)*int(add_perbase):3*(ah+buff)+2*(4+buff)*int(add_perbase)+4,:])
+            axfb.tick_params(bottom = True, labelbottom = True, labelleft = False, left = False)
+            axfb.imshow(pbattA.T-pbattB.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r', aspect = 'auto')
+            if xticks is not None:
+                axfb.set_xticks(xticks)
+            if xticklabels is not None:
+                axfb.set_xticklabels(xticklabels)
     
     return fig

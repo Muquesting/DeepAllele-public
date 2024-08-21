@@ -14,7 +14,14 @@ def check_attributions(att):
     if pearson < 0:
         print(Warning('It seems like your attributions in allele A and B are anticorrelated, which indicates that you should use --ratioattributions'))
     
-
+def det_xticks(start, end, steps):
+    stsizes = np.concatenate([np.array([2.5,5,10])*10**(i-10) for i in range(40)])
+    stsize = (end-start)/steps
+    stsize = stsizes[np.argmin(np.absolute(stsizes-stsize))]
+    xticks = np.arange(start, end +1)
+    xticks = xticks[xticks%stsize ==0]
+    
+    return xticks
 
 if __name__ == '__main__':
     att = np.load(sys.argv[1])
@@ -32,7 +39,10 @@ if __name__ == '__main__':
         for m, ml in enumerate(mlocs):
             mlocs[m][1] = np.array(ml[1].split('-'), dtype = int)
         mlocs[:,[2,3]] = mlocs[:,[2,3]].astype(int)
-
+        
+    seqloci = np.where(seq[...,0]==1)[0]
+    xticks = det_xticks(seqloci[0], seqloci[-1], 4)
+    
     # Modify the attribution values if not yet processed
     if '--centerattributions' in sys.argv:
         att -= (np.sum(att, axis = -2)/4)[...,None,:]
@@ -67,7 +77,7 @@ if __name__ == '__main__':
     if '--dpi' in sys.argv:
         dpi = int(sys.argv[sys.argv.index('--dpi')+1])
     
-    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase)
+    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks)
     fig.savefig(outname+'.'+fmt, dpi = dpi, bbox_inches = 'tight')
     print(outname+'.'+fmt)
 
