@@ -125,15 +125,15 @@ if __name__ == '__main__':
             for i, smo in enumerate(seqmotifs[j]):
                 mot = zsm[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j] # saved pwm is taken from zscored ism to align them
                 motf = ism[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j] * seqonehot[seqmotifs[j][i][0]:seqmotifs[j][i][-1]+1,:, j]
-                motmean = -np.mean(motf)*4 # mean is computed from original isms
-                motmax = -motf[np.argmax(np.abs(motf))//motf.shape[1], np.argmax(np.abs(motf))%motf.shape[1]]
+                motmean = np.mean(motf)*4 # mean is computed from original isms
+                motmax = motf[np.argmax(np.abs(motf))//motf.shape[1], np.argmax(np.abs(motf))%motf.shape[1]]
                 # compute mean of the same bases in the other sequence to get delta mean
                 altlocmot = seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]
                 # some bases might be not present because of insertions
                 if len(altlocmot) > 0:
                     altmot = ism[np.amin(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]):np.amax(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]) +1,:, j-1] * seqonehot[np.amin(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]):np.amax(seqo[j-1][np.isin(seqo[j], seqmotifs[j][i])]) +1,:, j-1]
-                    altmotmean=-np.mean(altmot)*4
-                    altmotmax=-altmot[np.argmax(np.abs(altmot))//altmot.shape[1],np.argmax(np.abs(altmot))%altmot.shape[1]]
+                    altmotmean=np.mean(altmot)*4
+                    altmotmax=altmot[np.argmax(np.abs(altmot))//altmot.shape[1],np.argmax(np.abs(altmot))%altmot.shape[1]]
                 else:
                     altmotmean = 0
                 motmeandiff = altmotmean - motmean

@@ -25,17 +25,16 @@ dataset=atac0/ # for some ATAC-seq data set
 
 We assume that the results of this analysis will be saved in the following structure:
 ```
-${outdir}/${modeltype}/${initialization}/
-
 # For example
 modeltype=mh # for multi-head, 
 initialization=init0 # seed for model initialization
+resultdir=${outdir}/${modeltype}/${initialization}/
 ```
 `initialization` can also be different architectures or anything that defines the models specific training run. It describes a variant of the model.
 
 We assume that your models are located in the following structure:
 ```
-${modeldir}/${modeltype}/${initialization}/
+ourmodelsdir=${modeldir}/${modeltype}/${initialization}/
 ```
 
 ### Get one-hot encodings of test set sequences, and measured values
@@ -213,12 +212,22 @@ seqletloc=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_otherloc.txt # Locations of
 ```
 
 ### Cluster extracted motifs
-Seqlets are aligned using Pearson correlation coefficient. The p-values for the correlation are computed and used for agglomerative clustering with complete linkage, i.e all seqlets in one cluster have at least a correlation equivalent to 0.01 to all other sequences in the cluster. Alternatively, other linkages or clustering methods can be used.
+Seqlets are aligned using Pearson correlation coefficient. The p-values for the correlation are computed and used for agglomerative clustering with complete linkage, i.e all seqlets in one cluster have at least a correlation equivalent to 0.05 to all other sequences in the cluster. Alternatively, other linkages or clustering methods can be used.
 ```
-python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.01 --save_stats --clusteronlogp --clusternames --reverse_complement
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --clusteronlogp --clusternames --reverse_complement
 # Returns combined motifs for all clusters
-clustermotifs=${seqlets%.meme}_cldcomplete0.01pvpfms.meme
-seqletclusters=${seqlets%.meme}_cldcomplete0.01pv.txt
+clustermotifs=${seqlets%.meme}ms4_cldcomplete0.05pvpfms.meme
+seqletclusters=${seqlets%.meme}ms4_cldcomplete0.015pv.txt
+```
+
+If memory is an issue, the clusters can be approximated from a random subset, while the left-out PWMs will be aligned to these clusters and assigned to them if they fulfill requirements of the selected linkage. 
+```
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --clusteronlogp --clusternames --reverse_complement --approximate_cluster_on 15000
+```
+
+Can be rerun with cluster assignments to just get the combined PWMs with.
+```
+python ${intdir}cluster_seqlets.py $seqlets $seqletclusters --clusternames --reverse_complement
 ```
 
 Determine the percentage of sequences with a motif that this cluster appears in
@@ -235,6 +244,12 @@ python ${intdir}select_largest_clusters.py $seqletclusters 20
 clusterlist20=${seqletclusters%.txt}_Ngte20list.txt
 ```
 
+### Plot PWMs of clusters 
+If wanted, also plot original pwms aligned to it with `--basepwms` and `--clusterfile`
+```
+python ${intdir}plot_pwm_logos.py $clustermotifs --basepwms $seqlets --clusterfile $seqletclusters --select 19,21
+```
+
 ### Plot the extracted motifs in tree with percentage of sequence that contain motif
 Use hirarchical clustering to determine the sequence relationship of the extracted clusters and plot it in tree structure. Visualization can combine clusters if they are too similar visually. 
 ```
@@ -242,7 +257,7 @@ python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig $
 ```
 `--joinpwms` Joins all motifs that are correlated more than 0.8, or closer than 0.2 in correlation distance. `--savejoined` saves these combined PWMs and their features if given.
 ```
-joinedmotifs=${clusterlist20%list.txt}joined0.2pfms.txt
+joinedmotifs=${clusterlist20%list.txt}joined0.2pfms.meme
 joinedmotifperc=${clusterlist20%list.txt}joined0.2pfmfeats.npz
 ```
 
@@ -250,16 +265,17 @@ joinedmotifperc=${clusterlist20%list.txt}joined0.2pfmfeats.npz
 
 Filter and normalize CWMs to classical pwms for usage with tomtom
 ```
-python ${intdir}parse_motifs_tomeme.py.py $clustermotifs --exppwms --normpwms --list $clusterlist20
+python ${intdir}parse_motifs_tomeme.py.py $clustermotifs --standardize --exppwms --norm --strip 0.1 --round 3 --set $clusterlist20
 # Returns normalized Position probability matrices
-clustermeme=${seqlets%.meme}_clusteredcomplete0.01pvalclustpfms.meme
+clustermeme=${seqlets%.meme}_Ngte20list.meme
 ```
 
 Use tomtom to get matching TFs. Be careful that your motif database is "cleaned" and uses TF names and not Motif-IDs as Jaspar f.e.. Tomtom uses Pearson correlation to compare motifs from database to motifs of clusters. We select a q-value (default) cutoff of 0.5 (default) to keep motifs with low p-value but failing q-values, for later summary analysis
 
 ```
-tfdatabase=${datadir}JASPAR2020_CORE_vertebrates_non-redundant_pfms.TFnames.meme
-tomtom -thresh 0.2 -dist pearson -text $clustermeme $tfdatabase > ${clustermeme%.meme}.tomtom.tsv
+motifdatabase=PATH/to/motifdatabase/
+tfdatabase=${motifdatabase}JASPAR2020_CORE_vertebrates_non-redundant_pfms.TFnames.meme
+tomtom -thresh 0.5 -dist pearson -text $clustermeme $tfdatabase > ${clustermeme%.meme}.tomtom.tsv
 # return tomtom tsv file
 clustertomtom={clustermeme%.meme}.tomtom.tsv
 ```
@@ -267,29 +283,34 @@ clustertomtom={clustermeme%.meme}.tomtom.tsv
 Make a name file for the combined clusters from tomtom tsv
 ```
 python ${intdir}replace_motifname_with_tomtom_match.py ${clustertomtom} q 0.05 $clustermeme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
-clustertfname={clustertomtom%.tsv}.TF.txt
+# Returns
+clustertfname={clustertomtom%.tomtom.tsv}q0.05best4_altnames.txt
+```
+Plot the clustered sequlets with assigned names
+```
+python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --pwmfeatures $clusterperc barplot=True --pwmnames $clustertfname
 ```
 
 ### Alternatively, use the joined motifs from the first plot to visualize the detected motifs in compact format
 
 Normalize the joined and combined PWM from the previous plot
 ```
-python ${intdir}parse_motifs_tomeme.py.py $joinedmotifs --normpwms
+python ${intdir}parse_motifs_tomeme.py.py $joinedmotifs --standardize --exppwms --norm --strip 0.1 --round 3 
 ```
 
 Run tomtom
 ```
-tomtom -thresh 0.2 -dist pearson -text ${joinedmotifs%.txt}.meme $tfdatabase > ${joinedmotifs%.txt}.tomtom.tsv
+tomtom -thresh 0.2 -dist pearson -text ${joinedmotifs%.meme}.meme $tfdatabase > ${joinedmotifs%.meme}.tomtom.tsv
 ```
 
 #### Make a name file for the combined clusters from tomtom tsv
 ```
-python ${intdir}replace_motifname_with_tomtom_match.py ${joinedmotifs%.txt}.tomtom.txt q 0.05 ${joinedmotifs%.txt}.meme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
+python ${intdir}replace_motifname_with_tomtom_match.py ${joinedmotifs%.meme}.tomtom.txt q 0.05 ${joinedmotifs%.meme}.meme --only_best 4 --reduce_nameset ';' --generate_namefile
 ```
 
 #### Plot the compact tree with the associated TFs and short names for the clusters
 ```
-python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.txt} --reverse_complement --pwmnames ${joinedmotifs%.txt}q0.05best4_altnames.txt --pwmfeatures ${joinedmotifs%.txt}feats.npz barplot=True
+python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.meme} --reverse_complement --pwmnames ${joinedmotifs%.meme}q0.05best4_altnames.txt --pwmfeatures ${joinedmotifperc}.npz barplot=True
 ```
 
 ## 5. Analyze mechanisms that are affected by variants. 
@@ -298,7 +319,7 @@ python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.txt} --
 
 Compare locations of motifs and main variants and determine if the main variant is obviously disturbing TF binding
 ```
-python ${intdir}motif_variant_location.py $mainvar $seqletclusters $seqletloc $validlist --savemotiflist 0 --TFenrichment $clustertomtom
+python ${intdir}motif_variant_location.py $mainvar $seqletclusters $seqletloc $validlist --savemotiflist --TFenrichment $clustertomtom
 # Returns pie chart and list of clusters affected by a variant
 ```
 `--TFenrichment` uses all TF names in the tomtom file associated with a cluster (p<0.05) that is affected by a variant, then sums over the -log10 p-values multiplied with the number of affected motifs for that cluster, and reassigns the TF names of the clusters based on the TF with the highest probability to affect these motifs. We call these motifs TF-like motifs to summarize which TF is likely affecting the motif based on the amount of affected motif and not only on the often noisy motif matches.

@@ -23,7 +23,8 @@ if __name__ == '__main__':
 
     print(f'Clusters larger than {ncut}: {len(uclust)}')
 
-    uclust=['Cluster_'+str(uc) for uc in uclust]
+    if '--addCluster' in sys.argv:
+       uclust=['Cluster_'+str(uc) for uc in uclust]
 
     np.savetxt(os.path.splitext(sys.argv[1])[0]+'_Ngte'+str(ncut)+'list.txt', uclust, fmt = '%s')
 

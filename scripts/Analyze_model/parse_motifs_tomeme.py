@@ -5,7 +5,7 @@ then write output in meme file.
 
 import numpy as np
 import sys, os
-from drg_tools.io_utils import numbertype, readin_motif_files, write_meme_file
+from DeepAllele.io import numbertype, readin_motif_files, write_meme_file
     
     
 if __name__ == '__main__':
@@ -20,13 +20,16 @@ if __name__ == '__main__':
         setfile = sys.argv[sys.argv.index('--set')+1]
         tset = np.genfromtxt(setfile, dtype = str)
         mask = np.where(np.isin(names, tset))[0]
-        outname += '_'+os.path.splitext(os.path.split(setfile)[1])[0]
+        outname += '_'+ os.path.splitext(os.path.split(setfile)[1])[0].rsplit('_',1)[-1]
         pwms, names = [pwms[i] for i in mask], [names[i] for i in mask]
-        outname += 'sbst'+str(len(names))
         
     if '--adjust_sign' in sys.argv:
         for p,pwm in enumerate(pwms):
             pwms[p] = np.sign(np.sum(pwm[np.argmax(np.absolute(pwm),axis = 0),np.arange(len(pwm[0]),dtype = int)]))*pwm
+    
+    if '--standardize' in sys.argv:
+        for p,pwm in enumerate(pwms):
+            pwms[p] /= np.sqrt(np.mean(pwm**2))
     
     if '--exppwms' in sys.argv:
         for p,pwm in enumerate(pwms):
@@ -36,11 +39,11 @@ if __name__ == '__main__':
         stripcut = float(sys.argv[sys.argv.index('--strip')+1])
         for p,pwm in enumerate(pwms):
             pwmsum = np.sum(pwm,axis=0)
-            mask = np.where(pwmsum >= stripcut)[0]
+            mask = np.where(pwmsum >= stripcut*np.amax(pwmsum))[0]
             if mask[-1]-1 > mask[0]:
                 pwms[p] = pwm[:,mask[0]:mask[-1]+1]
             else:
-                print('No entries in pwm', p, pwmsum)
+                print('No entries in pwm', names[p], pwmsum)
                 print('Change stripcut')
                 sys.exit()
     
@@ -59,7 +62,12 @@ if __name__ == '__main__':
     else:
         clusters = names
     outname += '.meme'
-    write_meme_file(pwms, clusters, ''.join(nts), outname, round = 3)
+    
+    if '--round' in sys.argv:
+        r = int(sys.argv[sys.argv.index('--round')+1])
+        for p,pwm in enumerate(pwms):
+            pwms[p] = np.around(pwm, r)
+    write_meme_file(pwms, clusters, ''.join(nts), outname)
     
     
     

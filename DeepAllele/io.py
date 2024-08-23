@@ -3,6 +3,78 @@
 import numpy as np
 import os, sys
 
+# check if str is boolean, a list, or a number, otherwise return string back
+import ast
+def check(inbool):
+    if inbool == 'True' or inbool == 'TRUE' or inbool == 'true':
+        return True
+    elif inbool == 'False' or inbool == 'FALSE' or inbool == 'false':
+        return False
+    elif inbool == 'None' or inbool == 'NONE' or inbool == 'none':
+        return None
+    elif "[" in inbool or "(" in inbool:
+        return ast.literal_eval(inbool)
+    else:
+        inbool = numbertype(inbool)
+    return inbool
+
+def inputkwargs_from_string(string, definer='=', separater = '+'):
+    '''
+    Takes long string as input and seperates it at "separater"
+    Returns dictionary with keys from before definer and values after definer
+    '''
+    kwargs = {}
+    if definer in string:
+        if separater in string:
+            adjpar = string.split(separater)
+        else:
+            adjpar = [string]
+        for p in adjpar:
+            p = p.split(definer,1)
+            kwargs[p[0]] = check(p[1])
+    return kwargs
+
+def add_name_from_dict(dictionary, cutkey = 2, cutitem = 3, keysep = None):
+    '''
+    Transforms keys and values of dictionary into a string that can be used
+    as an identifier for file name
+    '''
+    addname = ''
+    for key in dictionary:
+        if keysep is not None:
+            if keysep in str(key):
+                keyd = str(key).split('_')
+                apname = ''
+                for ap in keyd:
+                    apname += ap[0]
+            else:
+                apname = str(key)[:cutkey]
+        else:
+            apname = str(key)[:cutkey]
+        
+        addname += apname+str(dictionary[key])[:cutitem]
+    return addname
+
+def isfloat(number):
+    '''
+    Check if string is float
+    '''
+    try:
+        float(number)
+    except:
+        return False
+    else:
+        return True
+
+def isint(x):
+    '''
+    Check if string is int
+    '''
+    try:
+        int(x) 
+        return True
+    except:
+        return False
 
 def numbertype(inbool):
     '''
@@ -42,21 +114,20 @@ def write_meme_file(pwm, pwmname, alphabet, output_file_path):
         if pw.shape[1] != len(alphabet):
             switch *= False
     
-    if switch: 
-        for p, pw in enumerate(pwm):
-            pwm[p] = pw.T
-
     for i in range(0, n_filters):
+        pw = pwm[i]
+        if switch:
+            pw = pw.T
         meme_file.write("\n")
         meme_file.write("MOTIF %s \n" % pwmname[i])
-        meme_file.write("letter-probability matrix: alength= "+str(len(alphabet))+" w= %d \n"% np.count_nonzero(np.sum(pwm[i], axis=0)))
+        meme_file.write("letter-probability matrix: alength= "+str(len(alphabet))+" w= %d \n"% np.count_nonzero(np.sum(pw, axis=0)))
 
-        for j in range(0, np.shape(pwm[i])[-1]):
+        for j in range(0, np.shape(pw)[-1]):
             for a in range(len(alphabet)):
                 if a < len(alphabet)-1:
-                    meme_file.write(str(pwm[i][ a, j])+ "\t")
+                    meme_file.write(str(pw[ a, j])+ "\t")
                 else:
-                    meme_file.write(str(pwm[i][ a, j])+ "\n")
+                    meme_file.write(str(pw[ a, j])+ "\n")
 
     meme_file.close()
 
@@ -192,3 +263,31 @@ def read_meme(pwmlist, nameline = 'MOTIF'):
         pwms.append(np.array(pwm))
         names.append(name)
     return np.array(pwms, dtype = object), np.array(names), np.array(nts)
+
+def readtomtom(f):
+    '''
+    Minimalistic function to read names, targets, p-values and q-values from
+    tomtom output
+    '''
+    obj = open(f,'r').readlines()
+    names = []
+    pvals =[]
+    qvals = []
+    target = []
+    for l, line in enumerate(obj):
+        if l > 0 and line[0] != '#':
+            line = line.strip().split('\t')
+            if len(line) > 5:
+                names.append(line[0])
+                target.append(line[1])
+                pvals.append(line[3])
+                qvals.append(line[5])
+    if len(names) == 0:
+        print('Could not read tomtom file')
+        sys.exit()
+    names = np.array(names)
+    target = np.array(target)
+    pvals = np.array(pvals, dtype = float)
+    qvals = np.array(qvals, dtype = float)
+    return names, target, pvals, qvals
+

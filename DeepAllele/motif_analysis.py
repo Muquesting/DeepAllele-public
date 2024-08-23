@@ -238,11 +238,11 @@ def padded_weight_conv1d(qpm, ppm, min_overlap, padding = 0.25):
     res = torch.cat(res,-1)
     return res
 
-def correlation_to_pvalue(r,n):
+def correlation_to_pvalue(r,n, eps = 1e-7):
     '''
     Translates correlation values to p-values
     '''
-    tt = r* np.sqrt(n-2)/np.sqrt(1-r**2)
+    tt = r* np.sqrt(n-2)/np.sqrt(1-(r-eps)**2)
     pval = t.sf(np.abs(tt), n-1)*2
     return pval
               
@@ -517,7 +517,7 @@ def pfm2iupac(pwms, bk_freq = None):
 
 
 def combine_pwms(pwms, clusters, similarity, offsets, orientation, norm = 'max',
-                 remove_low = 0.45, minlen = 4):
+                 remove_low = 0.075, minlen = 3):
     
     '''
     Combine set of pwms based on their cluster assignments
@@ -552,7 +552,7 @@ def combine_pwms(pwms, clusters, similarity, offsets, orientation, norm = 'max',
     comb_pwms = []
     for u in unclusters:
         mask = np.where(clusters == u)[0]
- 
+
         sim = similarity[mask][:,mask]
         offsetcluster = offsets[mask][:,mask]
         orient = orientation[mask][:,mask]
@@ -572,13 +572,13 @@ def combine_pwms(pwms, clusters, similarity, offsets, orientation, norm = 'max',
         # similar to all others
         centerorient = orient.T[0]
         seed = _join_pwms(pwmscluster, clusterlen, centeroffsets, centerorient,
-                          norm = 'max', remove_low = 0.45, minlen = 4)
+                          norm = norm, remove_low = remove_low, minlen = minlen)
                 
         comb_pwms.append(seed)
     return comb_pwms
 
 
-def _join_pwms(pwmscluster, clusterlen, centeroffsets, centerorient, norm = 'max', remove_low = 0.45, minlen = 3):
+def _join_pwms(pwmscluster, clusterlen, centeroffsets, centerorient, norm = 'max', remove_low = 0.05, minlen = 3):
     '''
     Joins PWMS in pwmcluster to the pwm in position 0. 
     '''
@@ -614,7 +614,7 @@ def _join_pwms(pwmscluster, clusterlen, centeroffsets, centerorient, norm = 'max
         seed = seed/np.amax(seedcount)
     elif norm == 'sum':
         seed = seed/np.sum(np.absolute(seed),axis = 1)[:, None]
-    
+
     if remove_low > 0:
         sumseed = np.sum(np.absolute(seed), axis = 1)
         edges = np.where(sumseed/np.amax(sumseed)>remove_low)[0]
@@ -625,6 +625,6 @@ def _join_pwms(pwmscluster, clusterlen, centeroffsets, centerorient, norm = 'max
                 seed[:] = 0.
         else:
             seed[:] = 0.
-                
+
     return seed
     

@@ -1,85 +1,24 @@
 import numpy as np
 import sys, os
 
-from drg_tools.io_utils import readtomtom, isint
-from drg_tools.io_utils import find_elements_with_substring_inarray as findinstring
+from DeepAllele.io import readtomtom, isint
+import argparse 
 
+'''
+Either replaces motif name with TF name from tomtom in meme file
+or generates a separte file to translate motif names to TF names
 
-
-def filtertfset(target, targetnames, tnames, stat, tfset, tffilter, outname):
-    if tffilter == 'hardexactfilter':
-        outname += '_hdexftr'
-        mask = np.isin(np.char.upper(target), np.char.upper(tfset)) | np.isin(np.char.upper(targetnames), np.char.upper(tfset))
-        tnames, target, targetnames, stat = tnames[mask], target[mask], targetnames[mask], stat[mask]
-    elif tffilter == 'softexactfilter':
-        outname += '_sftexftr'
-        mask = np.isin(np.char.upper(target), np.char.upper(tfset)) | np.isin(np.char.upper(targetnames), np.char.upper(tfset))
-        tgnames = []
-        for t, tn in targetnames:
-            if not mask[t]:
-                tgnames.append(tn+'<')
-            else:
-                tgnames.append(tn)
-        targetnames = np.array(tgnames)
-    elif tffilter == 'hardfilter':
-        outname += '_hdftr'
-        mask = findinstring(np.char.upper(targetnames), np.char.upper(tfset))
-        tnames, target, targetnames, stat = tnames[mask], target[mask], targetnames[mask], stat[mask]
-    elif tffilter == 'softfilter':
-        outname += '_sftftr'
-        mask = findinstring(np.char.upper(targetnames), np.char.upper(tfset))
-        tgnames = []
-        for t, tn in targetnames:
-            if not mask[t]:
-                tgnames.append(tn+'<')
-            else:
-                tgnames.append(tn)
-        targetnames = np.array(tgnames)
-    else:
-        print('TF filter not understood')
-        sys.exit()
-    return target, targetnames, tnames, stat, outname
-
-def sorttfset(target, targetnames, tnames, stat, tfmetric, tfmetfilter):
-    newstat = np.zeros(len(tnames))
-    addarray = np.zeros(len(tnames))
-    for t in range(len(tnames)):
-        #find where tnames in tfmetric
-        pot = np.where(findinstring(tfmetric[:,-2], [target[t]]) | findinstring(tfmetric[:,-2], [targetnames[t]]))[0]
-        if np.shape(tfmetric)[1] == 3:
-            #of these preselected
-            #then find where target or targetnames in tfmetric
-            pot2 = np.where(tfmetric[:,0] == tnames[t])[0]
-            pot = np.intersect1d(pot,pot2)
-        if len(pot) > 0:    
-            newstat[t] = float(tfmetric[pot[0],-1])
-            addarray[t] = 1
-    if tfmetfilter == 'remove':
-        mask = addarray == 1
-        tnames, target, targetnames, stat = tnames[mask], target[mask], targetnames[mask], stat[mask]
-    else:
-        tgnames = []
-        for t, tn in targetnames:
-            if addarray[t] ==0:
-                tgnames.append(tn+'^')
-            else:
-                tgnames.append(tn)
-        targetnames = np.array(tgnames)
-    for t, tn in enumerate(np.unique(tnames)):
-        mask = np.where(tnames == tn)[0]
-        sort = np.lexsort(stat[mask], -newstat[mask])
-        tnames[mask], target[mask], targetnames[mask], stat[mask] = tnames[mask][sort], target[mask][sort], targetnames[mask][sort], stat[mask][sort]
-    
-    sys.exit()
-    return target, targetnames, tnames, stat
-
+'''
 
 if __name__ == '__main__':
+    
+    
     
     tomtom = sys.argv[1] # output tsv from tomtom
     tnames, target, pvals, qvals = readtomtom(tomtom)
     
-    vals = sys.argv[2] # detemine if pvals or qvals should be used to determine association
+    vals = sys.argv[2] 
+    # detemine if pvals or qvals should be used to determine association
     if vals == 'q':
         stat = qvals
     elif vals == 'p':
@@ -148,28 +87,10 @@ if __name__ == '__main__':
     if '--reduce_clustername' in sys.argv:
         rsplit = sys.argv[sys.argv.index('--reduce_clustername')+1]
     
+    # Splits cluster name at rnsplit and joins the first 4 and adds '...' if more than 4 are present
     rnsplit = None
     if '--reduce_nameset' in sys.argv:
         rnsplit = sys.argv[sys.argv.index('--reduce_nameset')+1]
-    
-    # filter the Transcription factor names that can be assigned to name
-    if '--TFset' in sys.argv:
-        tfset = sys.argv[sys.argv.index('--TFset')+1]
-        outname += '.'+os.path.splitext(os.path.split(tfset)[1])[0]
-        tfset = np.genfromtxt(tfset, dtype = str)
-        # just need to filter entries that don't contain valid TF name, or add a marker that says that its not in the valid set. 
-        tffilter = sys.argv[sys.argv.index('--TFset')+2]
-        target, targetnames, tnames, stat, outname = filtertfset(target, targetnames, tnames, stat, tffilter, tfset, outname)
-        
-    # sort TF by new metric from high to low: this could be by correlation to activations, or expression, or fold change
-    if '--TFmetric' in sys.argv:
-        tfmetric = sys.argv[sys.argv.index('--TFmetric')+1]
-        tfmetfilter = sys.argv[sys.argv.index('--TFmetric')+2]
-        outname += '.'+os.path.splitext(os.path.split(tfmetric)[1])[0] +'.'+tfmetfilter
-        tfmetric = np.genfromtxt(tfmetric, dtype = str)
-        # this metric can either be for a pair or for a TF, so we need make sure that we assign it correctly and determine how deal with cases that are not in the set.
-        print(target, targetnames, tnames, stat, tfmetric)
-        target, targetnames, tnames, stat = sorttfset(target, targetnames, tnames, stat, tfmetric, tfmetfilter)
         
     usepwmid = False
     if '--usepwmid' in sys.argv:

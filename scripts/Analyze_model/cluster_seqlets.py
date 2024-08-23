@@ -50,30 +50,30 @@ def complement_clustering(clusters, pwmnames, pwm_set, logs, pwmnames_left, pwm_
 
     return clusters, pwmnames, pwm_set
 
+def _get_third(csim, consider = 60):
+    argmin = np.argsort(csim.flatten())[:consider]
+    argmin = argmin//csim.shape[-1], argmin%csim.shape[-1]
+    simtothird = csim[argmin[0]] + csim[argmin[1]]
+    third = np.argmin(simtothird, axis = 1)
+    best = [argmin[0], argmin[1], third]
+    bestdist = csim[best[0], best[1]] + csim[best[2], best[1]] + csim[best[0], best[2]]
+    best = np.array(best)[:,np.argmin(bestdist)]
+    return best
+
 def _determine_triplets(clusters, similarity):
     '''
     Determine three data points in a cluster that are the furthest apart from
     each other. Use these three data points to determine if another data point
     should be assigned to that cluster.
-    Unfortunately, the three loops take a while to run.
+    
     '''
     uclusters = np.unique(clusters)
     bests = []
-    #print(similarity)
     for u, uc in enumerate(uclusters):
         mask = np.where(clusters == uc)[0]
         csim = similarity[mask][:,mask]
-        bestdist = 3*csim[0,0]
-        best = [0,0,0]
-        for i in range(len(mask)):
-            for j in range(i, len(mask)):
-                for h in range(j, len(mask)):
-                    dist = csim[i,j] + csim[i,h] + csim[j,h]
-                    if dist < bestdist:
-                        best = i,j,h
-                        bestdist = np.copy(dist)
-        #print(best, bestdist)
-        bests.append(best)
+        best = _get_third(csim)
+        bests.append(np.array(mask)[best])
         
     return np.concatenate(bests), np.repeat(uclusters,3)
 
@@ -172,17 +172,18 @@ if __name__ == '__main__':
             pwm_set = pwm_set[rand_set]
             pwmnames = pwmnames[rand_set]
         
-        
-        # Align and compute correlatoin between seqlets using torch conv1d.
-        correlation, logs, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, fill_logp_self = 1000, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
-        
-        # Save computed statistics for later
-        if args.save_stats and args.approximate_cluster_on is None:
-            np.savez_compressed(outname+'_stats.npz', pwmnames = pwmnames, correlation = correlation, logpvalues = logs, offsets = ofs, pwms = pwm_set, revcomp_matrix = revcomp_matrix)
+        if not os.path.isfile(args.linkage):
+            # Align and compute correlatoin between seqlets using torch conv1d.
+            correlation, logs, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, fill_logp_self = 1000, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
+            
+            # Save computed statistics for later
+            if args.save_stats and args.approximate_cluster_on is None:
+                np.savez_compressed(outname+'_stats.npz', pwmnames = pwmnames, correlation = correlation, logpvalues = logs, offsets = ofs, pwms = pwm_set, revcomp_matrix = revcomp_matrix)
     
     # Linkage defines the linkage function for clustering, or can be a file
     # with cluster assigments. In this case, distance_treshold is ignored and
-    # only combine_pwms is executed. 
+    # only combine_pwms is executed.
+    
     if os.path.isfile(args.linkage):
         if args.outname is None:
             outname = os.path.splitext(args.linkage)[0]
@@ -197,7 +198,7 @@ if __name__ == '__main__':
             clusterpwms = combine_pwms_separately(pwm_set, clusters)
         else:
             clusterpwms = combine_pwms(pwm_set, clusters, logs, ofs, revcomp_matrix)
-    else:
+    else: # If clusters not given, perform clustering
         if args.outname is None:
             outname += '_cld'+args.linkage
             if args.n_clusters:
@@ -232,7 +233,8 @@ if __name__ == '__main__':
         clusternames = [str(i) for i in np.unique(clusters) if i >= 0]
     else:
         clusternames = [';'.join(np.array(pwmnames)[clusters == i]) for i in np.unique(clusters)]
-     
+    
+    clusterpwms = [np.around(cp,3) for cp in clusterpwms]
     write_meme_file(clusterpwms, clusternames, 'ACGT', outname +'pfms.meme', )
     
     uclust, nclust = np.unique(clusters, return_counts = True)
