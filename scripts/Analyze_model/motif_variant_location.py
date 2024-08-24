@@ -129,7 +129,7 @@ if __name__ == '__main__':
     
     outname = args.outname
     if args.outname is None:
-        outname = os.path.splitext(args.mainvarfile)[0]
+        outname = f'{os.path.splitext(args.mainvarfile)[0]}_in_{os.path.splitext(os.path.split(args.clusterfile)[1])[0]}'
 
     if not np.array_equal(motifclusters[:,0], motifalign[:,0]):
         print('Warning: motifclusters and motiflocations dont contain same motifs')

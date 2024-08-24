@@ -8,7 +8,10 @@ from DeepAllele.io import readin_motif_files, write_meme_file
 from DeepAllele.motif_analysis import torch_compute_similarity_motifs, combine_pwms, assign_leftout_to_cluster
 import argparse
 
-def complement_clustering(clusters, pwmnames, pwm_set, logs, pwmnames_left, pwm_left, randmix):
+'''
+Internal functions that are only needed for clustering with subset and approximating clusters
+'''
+def complement_clustering(clusters, pwmnames, pwm_set, similarities, pwmnames_left, pwm_left, randmix):
     '''
     Wrapper to save space in main. 
     1) Computes distancce matrix between triplets from assigned clusters and
@@ -21,13 +24,10 @@ def complement_clustering(clusters, pwmnames, pwm_set, logs, pwmnames_left, pwm_
     original order
     
     '''
-    triplets, tripclusters = _determine_triplets(clusters, logs) # three members of the cluster to which left out data points will be measured
-    corr_left, logs_left, ofs_left, revcomp_matrix_left = torch_compute_similarity_motifs(pwm_set[triplets], pwm_left, fill_logp_self = 1000, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
+    triplets, tripclusters = _determine_triplets(clusters, similarities) # three members of the cluster to which left out data points will be measured
+    corr_left, ofs_left, revcomp_matrix_left = torch_compute_similarity_motifs(pwm_set[triplets], pwm_left, metric = args.distance_metric, return_alignment = True, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
     
-    if args.clusteronlogp:
-        checkmat = 10**-logs_left.reshape(3,-1,logs_left.shape[-1])
-    else:
-        checkmat = corr_left.reshape(3,-1,corr_left.shape[-1])
+    checkmat = corr_left.reshape(3,-1,corr_left.shape[-1])
     
     clusters_left = assign_leftout_to_cluster(tripclusters, checkmat, args.linkage, args.distance_threshold)
     
@@ -35,12 +35,9 @@ def complement_clustering(clusters, pwmnames, pwm_set, logs, pwmnames_left, pwm_
     
     if len(np.where(clusters_left == -1)[0]) > 1 and len(np.where(clusters_left == -1)[0]) <= args.approximate_cluster_on:
         print(f'Reclustering of {len(np.where(clusters_left == -1)[0])} clusters')
-        corr_left, logs_left, ofs_left, revcomp_matrix_left = torch_compute_similarity_motifs(pwm_left[clusters_left == -1], pwm_left[clusters_left == -1], fill_logp_self = 1000, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
+        corr_left, ofs_left, revcomp_matrix_left = torch_compute_similarity_motifs(pwm_left[clusters_left == -1], pwm_left[clusters_left == -1], metric = args.distance_metric, return_alignment = True, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = args.approximate_distance)
 
-        if args.clusteronlogp:
-            clustering = AgglomerativeClustering(n_clusters = None,metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(10**-logs_left)
-        else:
-            clustering = AgglomerativeClustering(n_clusters = None, metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(corr_left)
+        clustering = AgglomerativeClustering(n_clusters = None, metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(corr_left)
         clusters_left[clusters_left == -1] = np.amax(clusters) + clustering.labels_
 
     resort = np.argsort(randmix)
@@ -86,8 +83,8 @@ def combine_pwms_separately(pwm_set, clusters):
     for c, uc in enumerate(np.unique(clusters)):
         if uc >=0:
             mask = clusters == uc
-            corr_left, logs_left, ofs_left, revcomp_matrix_left = torch_compute_similarity_motifs(pwm_set[mask], pwm_set[mask], fill_logp_self = 1000, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
-            clusterpwms.append(combine_pwms(np.array(pwm_set, dtype = object)[mask], clusters[mask], logs_left, ofs_left, revcomp_matrix_left)[0])
+            corr_left, ofs_left, revcomp_matrix_left = torch_compute_similarity_motifs(pwm_set[mask], pwm_set[mask], metric = args.distance_metric, return_alignment = True, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = args.approximate_distance)
+            clusterpwms.append(combine_pwms(np.array(pwm_set, dtype = object)[mask], clusters[mask], 1-corr_left, ofs_left, revcomp_matrix_left)[0])
     return clusterpwms
 
 
@@ -112,13 +109,15 @@ if __name__ == '__main__':
                         help='If given, clustering motifs into N clusters instead of using distance threshold', default = None)
     parser.add_argument('--outname', type=str, default = None)
     parser.add_argument('--infocont', action='store_true')
-    parser.add_argument('--clusteronlogp', action='store_true', 
-                        help = 'Uses the p-values for clustering instead of the correlation.')
+    parser.add_argument('--distance_metric', default = 'correlation', 
+                        help = 'Either correlation, cosine, mse, or correlation_pvalue')
     parser.add_argument('--clusternames', action='store_true', 
                         help = 'If True combines original names with ; to long name for meme file. By default returns identifier as name')
     parser.add_argument('--save_stats', action='store_true')
     parser.add_argument('--reverse_complement', action='store_true', 
                         help = 'Determines if reverse complement will be compared as well')
+    parser.add_argument('--approximate_distance', action='store_false', 
+                        help = 'Uses regular torch conv1d to compute distance, ignores overhanging parts of shorter motif. Generally underestimates correlation between two motifs')
     parser.add_argument('--approximate_cluster_on', default = None, type = int, 
                         help='Define number of random motifs on which clustering will be performed, while rest will be assiged to best matching centroid of these clusters. Should be used if memory is too small for large distance matrix')
     parser.add_argument('--min_overlap', type = int, default = 4)
@@ -146,7 +145,6 @@ if __name__ == '__main__':
     if isstatsfile:
         pwmnames =pf['pwmnames']
         correlation = pf['correlation']
-        logs = pf['logpvalues']
         ofs = pf['offsets']
         pwm_set = pf['pwms']
         revcomp_matrix = pf['revcomp_matrix']
@@ -174,11 +172,11 @@ if __name__ == '__main__':
         
         if not os.path.isfile(args.linkage):
             # Align and compute correlatoin between seqlets using torch conv1d.
-            correlation, logs, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, fill_logp_self = 1000, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = True)
+            correlation, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, metric = args.distance_metric, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = args.approximate_distance, return_alignment = True)
             
             # Save computed statistics for later
             if args.save_stats and args.approximate_cluster_on is None:
-                np.savez_compressed(outname+'_stats.npz', pwmnames = pwmnames, correlation = correlation, logpvalues = logs, offsets = ofs, pwms = pwm_set, revcomp_matrix = revcomp_matrix)
+                np.savez_compressed(outname+'_stats.npz', pwmnames = pwmnames, correlation = correlation, offsets = ofs, pwms = pwm_set, revcomp_matrix = revcomp_matrix)
     
     # Linkage defines the linkage function for clustering, or can be a file
     # with cluster assigments. In this case, distance_treshold is ignored and
@@ -197,7 +195,7 @@ if __name__ == '__main__':
         if ofs is None:
             clusterpwms = combine_pwms_separately(pwm_set, clusters)
         else:
-            clusterpwms = combine_pwms(pwm_set, clusters, logs, ofs, revcomp_matrix)
+            clusterpwms = combine_pwms(pwm_set, clusters, 1-correlation, ofs, revcomp_matrix)
     else: # If clusters not given, perform clustering
         if args.outname is None:
             outname += '_cld'+args.linkage
@@ -205,24 +203,25 @@ if __name__ == '__main__':
                 outname += 'N'+str(args.n_clusters)
             else:
                 outname += str(args.distance_threshold)
+            if '_' in args.distance_metric:
+                for dm in args.distance_metric.split('_'):
+                    outname += dm[:3] 
+            else:
+                outname += args.distance_metric[:3]
             
-        if args.clusteronlogp:
-            outname += 'pv'
-            #logs = 10**-logs
-            clustering = AgglomerativeClustering(n_clusters = args.n_clusters, metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(10**-logs)
-        else:
-            clustering = AgglomerativeClustering(n_clusters = args.n_clusters, metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(correlation)
+        clustering = AgglomerativeClustering(n_clusters = args.n_clusters, metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(correlation)
         
         clusters = clustering.labels_
         
         if args.approximate_cluster_on is not None:
             
-            clusters, pwmnames, pwm_set = complement_clustering(clusters, pwmnames, pwm_set, logs, pwmnames_left, pwm_left, rand_mix)
+            clusters, pwmnames, pwm_set = complement_clustering(clusters, pwmnames, pwm_set, 1-correlation, pwmnames_left, pwm_left, rand_mix)
             
             clusterpwms = combine_pwms_separately(pwm_set, clusters)
         
         else:
-            clusterpwms = combine_pwms(pwm_set, clusters, logs, ofs, revcomp_matrix)
+           
+            clusterpwms = combine_pwms(pwm_set, clusters, 1.-correlation, ofs, revcomp_matrix)
         
         np.savetxt(outname + '.txt', np.array([pwmnames,clusters]).T, fmt = '%s')
         print(outname + '.txt')

@@ -214,15 +214,15 @@ seqletloc=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_otherloc.txt # Locations of
 ### Cluster extracted motifs
 Seqlets are aligned using Pearson correlation coefficient. The p-values for the correlation are computed and used for agglomerative clustering with complete linkage, i.e all seqlets in one cluster have at least a correlation equivalent to 0.05 to all other sequences in the cluster. Alternatively, other linkages or clustering methods can be used.
 ```
-python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --clusteronlogp --clusternames --reverse_complement
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --distance_metric correlation_pvalue --clusternames --reverse_complement
 # Returns combined motifs for all clusters
-clustermotifs=${seqlets%.meme}ms4_cldcomplete0.05pvpfms.meme
-seqletclusters=${seqlets%.meme}ms4_cldcomplete0.015pv.txt
+clustermotifs=${seqlets%.meme}ms4_cldcomplete0.05corpvapfms.meme
+seqletclusters=${seqlets%.meme}ms4_cldcomplete0.05corpva.txt
 ```
 
 If memory is an issue, the clusters can be approximated from a random subset, while the left-out PWMs will be aligned to these clusters and assigned to them if they fulfill requirements of the selected linkage. 
 ```
-python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --clusteronlogp --clusternames --reverse_complement --approximate_cluster_on 15000
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --distance_metric correlation_pvalue --clusternames --reverse_complement --approximate_cluster_on 15000
 ```
 
 Can be rerun with cluster assignments to just get the combined PWMs with.
@@ -253,7 +253,7 @@ python ${intdir}plot_pwm_logos.py $clustermotifs --basepwms $seqlets --clusterfi
 ### Plot the extracted motifs in tree with percentage of sequence that contain motif
 Use hirarchical clustering to determine the sequence relationship of the extracted clusters and plot it in tree structure. Visualization can combine clusters if they are too similar visually. 
 ```
-python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --joinpwms 0.2 --savejoined --pwmfeatures $clusterperc barplot=True
+python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --joinpwms 0.2 --savejoined --pwmfeatures $clusterperc barplot=True+ylabel='in % of sequences'
 ```
 `--joinpwms` Joins all motifs that are correlated more than 0.8, or closer than 0.2 in correlation distance. `--savejoined` saves these combined PWMs and their features if given.
 ```
@@ -288,7 +288,7 @@ clustertfname={clustertomtom%.tomtom.tsv}q0.05best4_altnames.txt
 ```
 Plot the clustered sequlets with assigned names
 ```
-python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --pwmfeatures $clusterperc barplot=True --pwmnames $clustertfname
+python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --pwmfeatures $clusterperc barplot=True+ylabel='in % of sequences' --pwmnames $clustertfname
 ```
 
 ### Alternatively, use the joined motifs from the first plot to visualize the detected motifs in compact format
@@ -310,7 +310,7 @@ python ${intdir}replace_motifname_with_tomtom_match.py ${joinedmotifs%.meme}.tom
 
 #### Plot the compact tree with the associated TFs and short names for the clusters
 ```
-python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.meme} --reverse_complement --pwmnames ${joinedmotifs%.meme}q0.05best4_altnames.txt --pwmfeatures ${joinedmotifperc}.npz barplot=True
+python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.meme} --reverse_complement --pwmnames ${joinedmotifs%.meme}q0.05best4_altnames.txt --pwmfeatures ${joinedmotifperc}.npz barplot=True+ylabel='in % of sequences'
 ```
 
 ## 5. Analyze mechanisms that are affected by variants. 
