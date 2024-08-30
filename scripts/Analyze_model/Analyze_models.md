@@ -39,27 +39,22 @@ ourmodelsdir=${modeldir}/${modeltype}/${initialization}/
 
 ### Get one-hot encodings of test set sequences, and measured values
 
-Extract data from downloaded data loaders
+Extract data from hdf5 path 
 ```
-MISSING 
-# Returns .txt files observations and .npy or .npz for sequences.
-```
+python ${initdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${outdir} --save_label ${save_label} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
+# Returns
+seqs=${outdir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
+obs=${outdir}${save_label}_${batch_id}_${train_or_val}_obs.npy
 
-For all these analyses, we need one-hot encoded sequence pairs
-```
-labels=${datadir}/seq_labels.npy
-seqs=${datadir}/seqs.npy
-vals=${datadir}/vals_obs_all.txt
 ```
 
 ### Get model predictions for one-hot encoded test sequences
 
-Load the model and make predictions for all sequences
+Load a model from checkpoint and make predictions for sequences
 ```
-MISSING
-
+python ${initdir}get_predictions.py --which_fn get_predictions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --save_label ${save_label} --mh_or_sh ${mh_or_sh} --device ${device}
 # Returns
-preds=${outdir}/${modeltype}/${initialization}/ref_predictions.txt
+preds=${outdir}${save_label}_${mh_or_sh}_predictions.npy
 ```
 
 ### Determine sequences for which model makes reasonable ratio predictions
