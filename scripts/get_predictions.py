@@ -25,15 +25,17 @@ def load_saved_model(ckpt_path,mh_or_sh):
     curr_model.eval()
     return curr_model
 
-def save_seqs_obs(save_dir, save_label, hdf5_path, batch_id='sum', split_by_chrom=True, train_or_val='val'): 
+def save_seqs_obs_labels(save_dir, save_label, hdf5_path, batch_id='sum', split_by_chrom=True, train_or_val='val'): 
     if batch_id=='':
         batch_id=None
     trainloader, valloader, train_feature, val_feature = data.load_h5(hdf5_path, 0.9, 32, batch_id=batch_id,split_by_chrom=split_by_chrom, shuffle=False)
     
     if train_or_val=='train':
         loader = trainloader
+        feats = train_feature
     elif train_or_val=='val':
         loader = valloader
+        feats = val_feature
 
     seqs_all = []
     obs_all = []
@@ -45,17 +47,18 @@ def save_seqs_obs(save_dir, save_label, hdf5_path, batch_id='sum', split_by_chro
     
     np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_seqs', seqs_all)
     np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_obs', obs_all)
+    np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_seq_labels', feats)
 
     
-def get_predictions(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh',device=0): 
+def get_predictions(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh',device=0,batch_size=32,num_workers=32): 
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
     model = load_saved_model(ckpt_path, mh_or_sh)
     trainer = pl.Trainer(gpus=[device])
-    
-    dataset = TensorDataset(seqs_all, np.zeros(len(seqs_all))) # y is placeholder 
+    placeholder_y = np.zeros((len(seqs_all),3))
+    dataset = TensorDataset(torch.from_numpy(seqs_all), torch.from_numpy(placeholder_y)) # y is placeholder 
     loader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
+        dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
     res = trainer.predict(model, loader)
     res=torch.cat(res).numpy()
