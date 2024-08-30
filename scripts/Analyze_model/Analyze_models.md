@@ -45,7 +45,7 @@ python ${initdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir $
 # Returns
 seqs=${outdir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
 obs=${outdir}${save_label}_${batch_id}_${train_or_val}_obs.npy
-
+seq_labels=${outdir}${save_label}_${batch_id}_${train_or_val}_seq_labels.npy
 ```
 
 ### Get model predictions for one-hot encoded test sequences
