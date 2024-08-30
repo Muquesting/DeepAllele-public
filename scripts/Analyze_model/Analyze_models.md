@@ -157,16 +157,9 @@ python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${out
 deeplift=${outdir}${save_label}__deeplift_attribs.npy
 
 ```
-
-Subtract mean from DeepLift multipliers to get attribution maps.
+By default, this saves hypothetical attributions from a uniform baseline. 
 Multipliers represent local attributions, hypothetical attributions are generated from the zero-sum gauge of the linear approximation. Hypothetical attributions are more suited to detect motifs. Briefly, they determine the preference of the model for a all four bases at each position if that base was inserted into the sequence. This is similar to the concept of PWMs.
-```
-MISSING
-python ${intdir}correct_deeplift.py $deeplift
 
-# Returns
-deepliftatt=${outdir}/${modeltype}/${initialization}/deeplift_local_attribs.imp.npy
-```
 
 ### If available, check correlation between ISM from two models with different random initialization
 ```
