@@ -104,7 +104,7 @@ def save_sequences(save_dir, save_label, hdf5_path, batch_id='sum', split_by_chr
     np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_seqs', seqs_all)
 
     
-def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', num_shuffles=10, device=0, baseline_type='uniform', attrib_type='deeplift'):
+def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', num_shuffles=10, device=0, baseline_type='uniform', attrib_type='deeplift',subtract_means=True):
     # seqs_path should be to a numpy array, which can be saved using save_sequences 
     
     os.makedirs(save_dir,exist_ok=True)
@@ -168,6 +168,11 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh
                     deeplift_res_1 = get_attributions(tensor_seq[:,:,:,1],model,baseline[:,:,:,1],target_idx=0,attrib_type=attrib_type)
                     all_seqs_res[shuffle_idx,seq_idx,:,:,0] = deeplift_res_0
                     all_seqs_res[shuffle_idx,seq_idx,:,:,1] = deeplift_res_1
+    
+    if subtract_means: 
+        mean = np.mean(all_seqs_res, axis=2)
+        all_seqs_res = all_seqs_res - mean[:, :, np.newaxis, :] 
+
     np.save(f'{save_dir}{save_label}_deeplift_attribs', all_seqs_res) 
 
     
