@@ -133,11 +133,11 @@ python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2
 ### Perform ISM on test set sequences
 
 ```
-MISSING
-python ${intdir}get_attributions.py some_input ...
+python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --save_label ${save_label}
 
 # Returns
-ism=${outdir}/${modeltype}/${initialization}/ism_res.npy
+ism=${outdir}${save_label}_ism_res.npy
+
 ```
 
 Subtract mean from ISM to get attribution maps.
@@ -148,14 +148,14 @@ python ${intdir}correct_ism.py $ism
 ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
 ```
 
-### Perform DeepLiftShap on sequences
+### Perform DeepLift on sequences
 
 ```
-MISSING
-python ${intdir}get_attributions.py some_input ...
+python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --save_label ${save_label}
 
 # Returns
-deeplift=${outdir}/${modeltype}/${initialization}/deeplift_local_attribs.npy
+deeplift=${outdir}${save_label}__deeplift_attribs.npy
+
 ```
 
 Subtract mean from DeepLift multipliers to get attribution maps.
