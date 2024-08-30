@@ -91,21 +91,8 @@ def get_attributions(x, model, baseline,attrib_type='deeplift',target_idx=2,mult
         attributions = input_seq.grad.clone().cpu().numpy()
         
     return attributions 
-
-
-def save_sequences(save_dir, save_label, hdf5_path, batch_id='sum', split_by_chrom=True, train_or_val='val'): 
-    if batch_id=='':
-        batch_id=None
-    trainloader, valloader, train_feature, val_feature = data.load_h5(hdf5_path, 0.9, 32, batch_id=batch_id,split_by_chrom=split_by_chrom, shuffle=False)
-    seqs_all = []
-    for bid, (seqs, labels) in enumerate(valloader):
-        seqs_all.append(seqs.cpu().numpy())
-    seqs_all=np.concatenate(seqs_all)
-    np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_seqs', seqs_all)
-
     
 def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', num_shuffles=10, device=0, baseline_type='uniform', attrib_type='deeplift',subtract_means=True):
-    # seqs_path should be to a numpy array, which can be saved using save_sequences 
     
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
@@ -236,7 +223,6 @@ if __name__ == '__main__':
 
     parser.add_argument("--save_dir")
     parser.add_argument("--save_label")
-    parser.add_argument("--hdf5_path")
     parser.add_argument("--ckpt_path")
     parser.add_argument("--seqs_path")
     parser.add_argument("--mh_or_sh",default='mh')
@@ -250,10 +236,7 @@ if __name__ == '__main__':
     parser.add_argument("--which_fn")
 
     args = parser.parse_args()
-
     
-    if args.which_fn=='save_sequences':
-        save_sequences(args.save_dir, args.save_label, args.hdf5_path,batch_id=args.batch_id)
     if args.which_fn=='get_deeplift_res':
         get_deeplift_res(args.save_dir, args.ckpt_path, args.seqs_path, save_label=args.save_label, mh_or_sh=args.mh_or_sh, num_shuffles=args.num_shuffles, device=args.device, baseline_type=args.baseline_type, attrib_type=args.attrib_type)
     if args.which_fn=='get_ism_res':
