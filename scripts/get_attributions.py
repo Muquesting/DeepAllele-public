@@ -176,7 +176,7 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh
     np.save(f'{save_dir}{save_label}_deeplift_attribs', all_seqs_res) 
 
     
-def get_ism_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', device=0, batch_size=200):
+def get_ism_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', device=0, batch_size=200,subtract_means=true):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     seqs_all = np.load(seqs_path)
@@ -228,6 +228,12 @@ def get_ism_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', de
     # save again at the end 
     np.save(f'{save_dir}{save_label}_ism_res', ism_res) 
     
+    if subtract_means: 
+        mean = np.mean(ism_res, axis=2)
+        ism_res = ism_res - mean[:, :, np.newaxis, :] 
+        np.save(f'{save_dir}{save_label}_ism_res', ism_res) 
+
+
 if __name__ == '__main__':  
     
     parser = argparse.ArgumentParser()
