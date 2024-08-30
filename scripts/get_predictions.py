@@ -11,11 +11,8 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader, random_split
 import pytorch_lightning as pl
 from deeplift.dinuc_shuffle import dinuc_shuffle
-
-sys.path.insert(0, '/homes/gws/aspiro17/DeepAllele/')  # adding the path
 from DeepAllele import model, data, tools, surrogate_model
 import DeepAllele
-sys.path.pop(0)  
 
 def load_saved_model(ckpt_path,mh_or_sh): 
     if mh_or_sh == 'mh': 
