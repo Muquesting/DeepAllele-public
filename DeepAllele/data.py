@@ -213,10 +213,6 @@ def load_h5(
             generator=torch.Generator().manual_seed(seed),
         )
 
-    # print(x_all.shape)
-    # print(train_index.shape)
-    # print(val_index.shape)
-
     train_dataset = TensorDataset(x_all[train_index], y_all[train_index])
     val_dataset = TensorDataset(x_all[val_index], y_all[val_index])
 

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from DeepAllele import tools
 
 
 # TODO: Clean and comment these functions
@@ -15,7 +16,7 @@ def influence_ablation(
         ablation_predictions = np.load(
             ablation_prediction_path + "predictions_kernel_{}.npy".format(kernel)
         )
-
+        #FIXME: labels should be passed as an argument
         B6_counts_pearson = tools.pearson_r(labels[:, 0], ablation_predictions[:, 0])
         Cast_counts_pearson = tools.pearson_r(labels[:, 1], ablation_predictions[:, 1])
         ratio_pearson = tools.pearson_r(labels[:, 2], ablation_predictions[:, 2])
