@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
+from DeepAllele.model import Base
 from DeepAllele.nn import (
     ConvBlock,
     Residual,

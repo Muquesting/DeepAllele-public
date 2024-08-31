@@ -8,7 +8,6 @@ import numpy as np
 from tqdm import tqdm
 from DeepAllele import tools
 
-# added 8/24
 def get_peak_chroms(peak_labels):
     peak_data = pd.read_csv(
         "/data/tuxm/project/F1-ASCA/data/raw_data/peaks_info_updated_2021_12_16.txt",
@@ -114,7 +113,6 @@ def load_h5(
             print(batch)
 
         ratio = np.stack([f[batch + ".ratio"][:] for batch in batch_id], axis=-1)
-        # print(ratio.shape)
         B6_counts = np.stack([f[batch + ".B6"][:] for batch in batch_id], axis=-1)
         Cast_counts = np.stack([f[batch + ".CAST"][:] for batch in batch_id], axis=-1)
         # ratio = f[batch_id + ".ratio"][:]
@@ -124,7 +122,6 @@ def load_h5(
         y_all = torch.from_numpy(
             np.concatenate([B6_counts, Cast_counts, ratio], -1)
         ).float()
-        # print(x_all.shape, y_all.shape)
     else:
         ratio = f["ratio"][:]
         B6_counts = f["B6_counts"][:]
@@ -132,8 +129,6 @@ def load_h5(
 
         x_all = torch.from_numpy(np.stack([B6_sequence, Cast_sequence], -1)).float()
         y_all = torch.from_numpy(np.stack([B6_counts, Cast_counts, ratio], -1)).float()
-
-    # moved --------
 
     # check if there is peak_name in the keys
     try:
@@ -144,9 +139,6 @@ def load_h5(
         ]
         peak_name_dataset = np.array(peak_name_dataset)
 
-        # print(peak_name_dataset)
-
-        # new ------
         if split_by_chrom:
             print("splitting train and val by chrom")
 
@@ -157,11 +149,7 @@ def load_h5(
                 print("ATAC seq dataset")
 
                 chroms = get_peak_chroms(peak_name_dataset)
-
-                print(chroms[:20])
-                # val_index = (chroms == '1') | (chroms == '19')
                 val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
-
                 not_val_index = np.logical_not(val_index)
                 remove_index = np.logical_not(
                     (chroms == "nan_chr_label") | (chroms == "not_in_dataset")
@@ -176,10 +164,6 @@ def load_h5(
                     chrom = peak_name.split("-")[1].split("r")[1]
                     chroms.append(chrom)
                 chroms = np.array(chroms)
-
-                # print(len(chroms))
-
-                # val_index = (chroms == '1') | (chroms == '19')
                 val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
                 train_index = np.logical_not(val_index)
 
@@ -197,7 +181,6 @@ def load_h5(
         train_peak_name = peak_name_dataset[train_index]
         val_peak_name = peak_name_dataset[val_index]
         print("decode the peak name successfully")
-        # return trainloader, valloader, train_peak_name, val_peak_name
 
     except:
         print("No peak_name in the hdf5 file")
