@@ -9,7 +9,6 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
-from zmq import device
 from DeepAllele import data, model, tools
 
 
@@ -36,24 +35,12 @@ def train_model(
         logger=logger,
         max_epochs=100,  # TODO: change this to 100
     )
-
+    single_model = Model
     trainer.fit(single_model, trainloader, valloader)
 
-    PWM = single_model.get_PWM(3.0)
-
-    motif_list = []
-    for i in range(PWM.shape[0]):
-        if np.max(PWM[i, :, :]) > 0.5:
-            print("The %dth kernel" % i)
-            print(PWM[i, :, :].max())
-            motif_list.append(i)
-    #             print(PWM_all[:,:,i])
-
-    pwm = PWM[motif_list[:], :, :].copy()
-    tools.mkdir(checkpoint_path)
-
-    tools.write_meme_file(pwm, checkpoint_path + "/selected_motifs.meme")
-    tools.write_meme_file(PWM, checkpoint_path + "/all_motifs.meme")
+    single_model = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(
+        checkpoint_callback.best_model_path
+    )
 
 
 if __name__ == "__main__":
@@ -72,33 +59,30 @@ if __name__ == "__main__":
         "--conv_layers",
         help="the number of the large convolution layers",
         type=int,
-        default=2,
+        default=4,
     )
     parser.add_argument(
         "--conv_repeat",
         help="the number of the convolution conv block",
         type=int,
-        default=2,
+        default=1,
     )
 
-    parser.add_argument(
-        "--kernel_number", help="the number of the kernels", default=512
-    )
-    parser.add_argument("--kernel_length", help="the length of the kernels", default=15)
-    parser.add_argument(
-        "--filter_number", help="the number of the filters", default=256
-    )
-    parser.add_argument("--kernel_size", help="the size of the kernels", default=3)
-    parser.add_argument("--pooling_size", help="the size of the pooling", default=2)
+    parser.add_argument("--kernel_number", type=int, help="the number of the kernels", default=256)
+    parser.add_argument("--kernel_length", type=int, help="the length of the kernels", default=15)
+    parser.add_argument("--filter_number", type=int, help="the number of the filters", default=256)
+    parser.add_argument("--kernel_size", type=int, help="the size of the kernels", default=5)
+    parser.add_argument("--pooling_size", type=int, help="the size of the pooling", default=4)
+    parser.add_argument("--learning_rate", type=float, default=1e-4)
+    parser.add_argument("--random_seed_start", type=int, default=0)
+    parser.add_argument("--random_seed_end", type=int, default=5)
+    parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--first_batch_norm", type=bool, default=True)
 
-    parser.add_argument("--h_layers", help="the number of fc hidden layers", default=2)
+    parser.add_argument("--h_layers", type=int, help="the number of fc hidden layers", default=2)
     parser.add_argument(
-        "--hidden_size", help="the hidden size of fc layers", default=256
+        "--hidden_size", type=int, help="the hidden size of fc layers", default=256
     )
-    parser.add_argument("--learning_rate", default=1e-4)
-    parser.add_argument("--random_seed_start", default=0)
-    parser.add_argument("--random_seed_end", default=5)
-    parser.add_argument("--device", default=0)
 
     args = parser.parse_args()
 
@@ -123,6 +107,12 @@ if __name__ == "__main__":
     device = int(args.device)
 
     learning_rate = float(args.learning_rate)
+    # convert the first_batch_norm to bool, 'True' -> True, 'False' -> False
+    first_batch_norm = args.first_batch_norm
+    print(first_batch_norm)
+    print(args.first_batch_norm)
+
+    
 
     hyper_output_path = (
         out_folder
@@ -145,8 +135,19 @@ if __name__ == "__main__":
         + str(h_layers)
         + "_"
         + str(hidden_size)
+        + "_"
+        + str(first_batch_norm)
     )
-    trainloader, valloader = data.load_data(in_folder, 0.9, 32)  # type: ignore
+
+    trainloader, valloader, train_peakname, val_peakname = data.load_h5(
+        in_folder, 0.9, 32, split_by_chrom=True, shuffle=False
+    )
+    for batch_id, (seqs, labels) in enumerate(trainloader):
+        print(seqs.shape)
+        print(labels.shape)
+        break
+    input_length = seqs.shape[1]
+
     for random_seed in range(random_seed_start, random_seed_end):
 
         # train_input_path = "../../data/seuqence_datasets_new_cast.hdf5"
@@ -165,26 +166,11 @@ if __name__ == "__main__":
                 hidden_size=hidden_size,
                 dropout=0.2,
                 h_layers=h_layers,
-                input_length=330 * 2,
+                input_length=input_length * 2,
                 filter_number=filter_number,
                 pooling_type="avg",
                 learning_rate=learning_rate,
-            )
-        elif model_type == "Multihead_Residual_CNN":
-            single_model = model.MultiHeadResidualCNN(
-                kernel_number=kernel_number,
-                kernel_length=kernel_length,
-                kernel_size=kernel_size,
-                pooling_size=pooling_size,
-                conv_layers=conv_layers,
-                conv_repeat=conv_repeat,
-                hidden_size=hidden_size,
-                dropout=0.2,
-                h_layers=h_layers,
-                input_length=330 * 2,
-                filter_number=filter_number,
-                pooling_type="avg",
-                learning_rate=learning_rate,
+                scheduler="cycle",
             )
         else:
             raise ValueError("model type not supported")
