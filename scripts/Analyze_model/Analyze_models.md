@@ -74,15 +74,27 @@ python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-
 
 ## 2. Compute ISM values for all variants between two alleles and identify main variant and its impact
 
-### Load the model parameters and make predictions for all test set sequences
+### Load model parameters and make predictions for inserting each variant present into each genome 
 
 ```
-MISSING
+python get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs_path} --ckpt_path ${ckpt_path} --device ${device}
 
 # Returns
-varA=${outdir}/${modeltype}/${initialization}/from_A/ISM_variant_effects.txt
-varB=${outdir}/${modeltype}/${initialization}/from_B/ISM_variant_effects.txt
+all_variant_ism=${outdir}variant_ism_res.csv
 ```
+
+Here, ${seqs_path} should be the path to the sequences saved in a previous step as: 
+
+```
+seqs=${outdir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
+```
+get_variant_ism.py will save two additional intermediate files used for computing variant ism: 
+
+```
+variant_info=${outdir}variant_info.csv
+aligned_sequences=${outdir}aligned_seqs.npy
+```
+variant_info describes all variants present in the genomes by index and sequence. aligned_sequences contains aligned sequences used to insert variants at the correct index in each genome. 
 
 Average ISMs of variants from two alleles
 
