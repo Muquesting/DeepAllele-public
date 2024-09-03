@@ -4,7 +4,7 @@ from Bio import pairwise2
 from scipy.stats import pearsonr, spearmanr
 import multiprocessing
 from tqdm import tqdm
-
+from DeepAllele import model
 
 def onehot_encoding(
     sequence: str,
@@ -245,6 +245,10 @@ def information_content(pwm, pseudocount=0.001, background=[0.25, 0.25, 0.25, 0.
     raise NotImplementedError
 
 
-
-
-    
+def load_saved_model(ckpt_path,mh_or_sh): 
+    if mh_or_sh == 'mh': 
+        curr_model = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(ckpt_path)
+    elif mh_or_sh == 'sh': 
+        curr_model = model.SingleHeadResidualCNN.load_from_checkpoint(ckpt_path)
+    curr_model.eval()
+    return curr_model

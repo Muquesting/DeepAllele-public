@@ -2,30 +2,14 @@ import numpy as np
 import pandas as pd
 import os
 import time
-import h5py
 import argparse
 from captum.attr import DeepLift
 from captum.attr import IntegratedGradients
-import sys
 import torch
-from torch.utils.data import TensorDataset, DataLoader, random_split
+from torch.utils.data import TensorDataset, DataLoader
 import pytorch_lightning as pl
 from deeplift.dinuc_shuffle import dinuc_shuffle
-from DeepAllele import model, data, tools, surrogate_model
-import DeepAllele
-
-CHIP_SEQ_LEN = 551
-ATAC_SEQ_LEN = 330
-
-
-def load_saved_model(ckpt_path,mh_or_sh): 
-    if mh_or_sh == 'mh': 
-        curr_model = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(ckpt_path)
-    elif mh_or_sh == 'sh': 
-        curr_model = model.SingleHeadResidualCNN.load_from_checkpoint(ckpt_path)
-    curr_model.eval()
-    return curr_model
-
+from DeepAllele import model, tools, surrogate_model
 
 def get_surrogate_model(ckpt_path):
     # Captum DeepLift does not allow for reuse of ReLU model, which is part of deepallele's architecture.  
@@ -96,7 +80,7 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh
     
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
-    model = load_saved_model(ckpt_path, mh_or_sh)
+    model = tools.load_saved_model(ckpt_path, mh_or_sh)
     if mh_or_sh == 'mh': 
          model = get_surrogate_model(ckpt_path)
     model.to(device)
@@ -168,7 +152,7 @@ def get_ism_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', de
         os.makedirs(save_dir)
     seqs_all = np.load(seqs_path)
 
-    model = load_saved_model(ckpt_path, mh_or_sh)
+    model = tools.load_saved_model(ckpt_path, mh_or_sh)
     
     ism_res = np.zeros(seqs_all.shape)    
     trainer = pl.Trainer(gpus=[device])
