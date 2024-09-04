@@ -1,13 +1,13 @@
 # Analyze learned regulatory grammar with sequence attributions
 
-Here, we demonstrate how one can use sequence attributions from the trained DeepAllele model to make predictions for variant effect sizes, and to determine the regulatory mechanisms that lead to allelic imbalances in the data set. DeepAllele has improved predictions of allelic imbalances over classical models that were only train on the absolute counts due to its addional ratio head. The ratio head uses sequence from both Alleles as input, and therefore also returns attributions for both sequences. These attributions. Sequence attributions from the ratio prediction contain motifs that are important for both allelic counts, and their difference in the two allelic sequences is directely related in their size to the ratio predictions.
+Here, we demonstrate how to use sequence attributions from trained DeepAllele models to make predictions for variant effect sizes, and to determine the regulatory mechanisms that lead to allelic imbalances in the data set. DeepAllele shows improved performance for predictions of allelic imbalances over classical models that were only trained on counts. The ratio head uses sequences from both alleles as input to predict allelic ratios. This additional objective improves predictions for allelic ratios. Attributions from the "ratio"-head return importance scores for both alleles. These sequence attributions contain motifs that are important for predicting both allelic counts, and the ratio. The differences between the size of motifs in the two allelic sequences is directely related to the ratio predictions.
 
 
 ## 1. Make predictions with the model and determine trusted set of sequences
-No model is perfect. To determine which model predictions we can trust, we use the model's predictions for unseen sequences to determine for which it might have learned the correct mechanisms from other sequences. 
+No model is perfect! To determine which model predictions we can trust, we use the model's predictions for unseen sequences in the test set to determine for which it might have learned the correct mechanisms. 
 
 ### Get models and processed data from the paper
-Use `download_models.sh` to download the processed data and trained models from Zenodo. This bash script also initializes PATH structure for `atac/`, `chip/`, and `rna/` with `models/`, `data/` and `results/`.
+Use `download_models.sh` to download the processed data and trained models from Zenodo. This bash script also initializes PATH structure for `atac/`, `chip/`, and `rna/` with `models/`, `data/` and `results/` in each of them.
 
 ### Set relevant PATHs for subsequent analysis
 ```
@@ -30,7 +30,7 @@ modeltype=mh # for multi-head,
 initialization=init0 # seed for model initialization
 resultdir=${outdir}/${modeltype}/${initialization}/
 ```
-`initialization` can also be different architectures or anything that defines the models specific training run. It describes a variant of the model.
+`initialization` can be different random starting points from which the model learns, different model architectures, or anything that defines the models specific training run. It describes a variant of the model.
 
 We assume that your models are located in the following structure:
 ```
@@ -41,35 +41,43 @@ ourmodelsdir=${modeldir}/${modeltype}/${initialization}/
 
 Extract data from hdf5 path 
 ```
-python ${initdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${outdir} --save_label ${save_label} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
+hdf5_path=${ourmodelsdir}$<Name of hdf5 file>
+batch_id=XXX
+
+python ${intdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${datadir} --save_label ${save_label} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
 # Returns
-seqs=${outdir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
-obs=${outdir}${save_label}_${batch_id}_${train_or_val}_obs.npy
-seq_labels=${outdir}${save_label}_${batch_id}_${train_or_val}_seq_labels.npy
+seqs=${datadir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
+obs=${datadir}${save_label}_${batch_id}_${train_or_val}_obs.npy
+seq_labels=${datadir}${save_label}_${batch_id}_${train_or_val}_seq_labels.npy
 ```
 
 ### Get model predictions for one-hot encoded test sequences
 
 Load a model from checkpoint and make predictions for sequences
 ```
-python ${initdir}get_predictions.py --which_fn get_predictions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --save_label ${save_label} --mh_or_sh ${mh_or_sh} --device ${device}
+ckpt_path=${ourmodelsdir}<model file.ckpt>
+save_label=YYY
+device=gpu
+python ${intdir}get_predictions.py --which_fn get_predictions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --save_label ${save_label} --mh_or_sh ${modeltype} --device ${device}
 # Returns
-preds=${outdir}${save_label}_${mh_or_sh}_predictions.npy
+preds=${outdir}${save_label}_${modeltype}_predictions.txt
 ```
 
 ### Determine sequences for which model makes reasonable ratio predictions
 
-Ratio predictions are not perfectly scaled compared to the real data distributions because the majority of sites experiences no allelic imbalance. We use Z-score normalization to determine which ratio are significant.
+Ratio predictions are not perfectly scaled compared to the real data distribution because the majority of sites experience no allelic imbalance. We use Z-score normalization to determine which ratio predictions are significant.
 ```
-python ${initdir}zscore_datacolumn.py $preds --column -2
+python ${intdir}zscore_datacolumn.py $preds --column -2
 
 # Use cut-offs of abs(ratio) > 1 and abs(z-score(pred.ratio))) > 1.65 to classify the data points
-python ${initdir}classify_prediction.py $vals ${preds%.txt}_zscore.txt 1. 1.65 --column1 -1 --column2 -1
+ratio_cut=1.0
+predz_cut=1.65
+python ${intdir}classify_prediction.py $vals ${preds%.txt}_zscore.txt $ratio_cut $predz_cut --column1 -1 --column2 -1
 # Returns
-validlist=${preds%.txt}_zscore_-1_eval_on_${vals%.txt}_-1_cut1.0_and_1.65.txt
+validlist=${preds%.txt}_zscore_-1_eval_on_${vals%.txt}_-1_cut${ratio_cut}_and_${predz_cut}.txt
 
 # Plot measured allelic ratios versus predicted and color by class
-python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_Measuredvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist ${validlist} --contour log --cmap grey,red --legend
+python ${intdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_Measuredvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist ${validlist} --contour log --cmap grey,red --legend
 ```
 
 ## 2. Compute ISM values for all variants between two alleles and identify main variant and its impact
@@ -77,29 +85,25 @@ python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-
 ### Load model parameters and make predictions for inserting each variant present into each genome 
 
 ```
-python get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs_path} --ckpt_path ${ckpt_path} --device ${device}
+
+python ${intdir}get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs} --ckpt_path ${ckpt_path} --device ${device}
 
 # Returns
 all_variant_ism=${outdir}variant_ism_res.csv
 ```
 
-Here, ${seqs_path} should be the path to the sequences saved in a previous step as: 
-
-```
-seqs=${outdir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
-```
 get_variant_ism.py will save two additional intermediate files used for computing variant ism: 
 
 ```
 variant_info=${outdir}variant_info.csv
 aligned_sequences=${outdir}aligned_seqs.npy
 ```
-variant_info describes all variants present in the genomes by index and sequence. aligned_sequences contains aligned sequences used to insert variants at the correct index in each genome. 
+`variant_info` describes all variants present in the genomes by index and sequence. `aligned_sequences` contains aligned sequences used to insert variants at the correct index in each genome. 
 
 Average ISMs of variants from two alleles
 
 ```
-python ${intdir}averageISM.py $varA $varB
+python ${intdir}averageISM.py $all_variant_ism
 # Returns
 var=${outdir}/${modeltype}/${initialization}/ISM_avg_variant_effect.txt
 ```
@@ -140,7 +144,7 @@ python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2
 ### Perform ISM on test set sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --save_label ${save_label}
+python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --save_label ${save_label}
 
 # Returns
 ism=${outdir}${save_label}_ism_res.npy
@@ -165,7 +169,7 @@ deeplift=${outdir}${save_label}__deeplift_attribs.npy
 
 ```
 By default, this saves hypothetical attributions from a uniform baseline. 
-Multipliers represent local attributions, hypothetical attributions are generated from the zero-sum gauge of the linear approximation. Hypothetical attributions are more suited to detect motifs. Briefly, they determine the preference of the model for a all four bases at each position if that base was inserted into the sequence. This is similar to the concept of PWMs.
+Multipliers represent local attributions, hypothetical attributions are generated from the zero-sum gauge of the linear approximation. Hypothetical attributions are more suited to detect motifs. Briefly, they determine the preference of the model for all four bases at each position, as if these bases were inserted into the sequence. This is similar to the concept of PWMs.
 
 
 ### If available, check correlation between ISM from two models with different random initialization
