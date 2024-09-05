@@ -44,11 +44,11 @@ Extract data from hdf5 path
 hdf5_path=${ourmodelsdir}$<Name of hdf5 file>
 batch_id=XXX
 
-python ${intdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${datadir} --save_label ${save_label} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
+python ${intdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${datadir} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
 # Returns
-seqs=${datadir}${save_label}_${batch_id}_${train_or_val}_seqs.npy
-obs=${datadir}${save_label}_${batch_id}_${train_or_val}_obs.npy
-seq_labels=${datadir}${save_label}_${batch_id}_${train_or_val}_seq_labels.npy
+seqs=${datadir}${batch_id}_${train_or_val}_seqs.npy
+obs=${datadir}${batch_id}_${train_or_val}_obs.npy
+seq_labels=${datadir}${batch_id}_${train_or_val}_seq_labels.npy
 ```
 
 ### Get model predictions for one-hot encoded test sequences
@@ -56,11 +56,10 @@ seq_labels=${datadir}${save_label}_${batch_id}_${train_or_val}_seq_labels.npy
 Load a model from checkpoint and make predictions for sequences
 ```
 ckpt_path=${ourmodelsdir}<model file.ckpt>
-save_label=YYY
 device=gpu
-python ${intdir}get_predictions.py --which_fn get_predictions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --save_label ${save_label} --mh_or_sh ${modeltype} --device ${device}
+python ${intdir}get_predictions.py --which_fn get_predictions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --mh_or_sh ${modeltype} --device ${device}
 # Returns
-preds=${outdir}${save_label}_${modeltype}_predictions.txt
+preds=${outdir}${modeltype}_predictions.txt
 ```
 
 ### Determine sequences for which model makes reasonable ratio predictions
@@ -86,10 +85,9 @@ python ${intdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-r
 
 ```
 
-python ${intdir}get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs} --ckpt_path ${ckpt_path} --device ${device} --save_label ${save_label}
-
+python ${intdir}get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs} --ckpt_path ${ckpt_path} --device ${device} 
 # Returns
-all_variant_ism=${outdir}{save_label}_variant_ism_res.csv
+all_variant_ism=${outdir}variant_ism_res.csv
 ```
 
 get_variant_ism.py will save two additional intermediate files used for computing variant ism: 
@@ -144,10 +142,10 @@ python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2
 ### Perform ISM on test set sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --save_label ${save_label}
+python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} 
 
 # Returns
-ism=${outdir}${save_label}_ism_res.npy
+ism=${outdir}ism_res.npy
 
 ```
 
@@ -162,10 +160,10 @@ ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
 ### Perform DeepLift on sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --save_label ${save_label}
+python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} 
 
 # Returns
-deeplift=${outdir}${save_label}__deeplift_attribs.npy
+deeplift=${outdir}deeplift_attribs.npy
 
 ```
 By default, this saves hypothetical attributions from a uniform baseline. 
