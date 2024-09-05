@@ -45,9 +45,14 @@ def get_predictions(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh'
     )
     res = trainer.predict(model, loader)
     res=torch.cat(res).numpy()
-    save_dir = os.path.join(save_dir, atac_or_chip) + '/'
-    np.save(f'{save_dir}{save_label}_{mh_or_sh}_predictions',res)
     
+    res_df = pd.DataFrame()
+    res_df['count_A'] = res[:,0]
+    res_df['count_B'] = res[:,1]
+    res_df['ratioHead'] = res[:,2]
+    res_df['ratio_count_A-B'] = res[:,0]-res[:,1]
+    res_df.index.name = 'seq_idx'
+    res_df.to_csv(f'{save_dir}{save_label}_{mh_or_sh}_predictions.txt', sep='\t', index=True)    
     
 if __name__ == '__main__':  
     
