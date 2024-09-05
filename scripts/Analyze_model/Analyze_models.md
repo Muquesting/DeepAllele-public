@@ -82,14 +82,14 @@ python ${intdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-r
 
 ## 2. Compute ISM values for all variants between two alleles and identify main variant and its impact
 
-### Load model parameters and make predictions for inserting each variant present into each genome 
+### Load model parameters and make predictions for inserting each variant present into each genome. Save (variant prediction - reference prediction) for each variant, each genome. 
 
 ```
 
-python ${intdir}get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs} --ckpt_path ${ckpt_path} --device ${device}
+python ${intdir}get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs} --ckpt_path ${ckpt_path} --device ${device} --save_label ${save_label}
 
 # Returns
-all_variant_ism=${outdir}variant_ism_res.csv
+all_variant_ism=${outdir}{save_label}_variant_ism_res.csv
 ```
 
 get_variant_ism.py will save two additional intermediate files used for computing variant ism: 
