@@ -112,15 +112,14 @@ def save_aligned_seqs(save_dir,seqs_path):
     comb_aligned = np.concatenate((genome_0_seqs, genome_1_seqs), axis=-1)
     np.save(save_dir + 'aligned_seqs', comb_aligned)
 
-def get_ism(save_dir, seqs_path, ckpt_path, device,save_label=''):                     
+def get_ism(save_dir, seqs_path, ckpt_path, device):                     
     os.makedirs(save_dir,exist_ok=True)
     
     # first, get predictions for all ref seqs 
-    predictions_save_name = f'{save_label}_mh_predictions.txt'
-    if predictions_save_name not in os.listdir(save_dir): 
+    if 'mh_predictions.txt' not in os.listdir(save_dir): 
         print('getting predictions for ref seqs')
-        get_predictions(save_dir, ckpt_path, seqs_path, save_label,device=device)
-    preds =  pd.read_csv(f'{save_dir}{save_label}_mh_predictions.txt',index_col=0,sep='\t')
+        get_predictions(save_dir, ckpt_path, seqs_path,device=device)
+    preds =  pd.read_csv(f'{save_dir}mh_predictions.txt',index_col=0,sep='\t')
     
     # if they have not already been saved, save variant info and aligned seqs to use for variant ism     
     if 'variant_info.csv' not in os.listdir(save_dir):
@@ -180,7 +179,7 @@ def get_ism(save_dir, seqs_path, ckpt_path, device,save_label=''):
             var_info.loc[i,f'ratio_{genome_label}'] = out[0,2] - ratio_ref_pred
             var_info.loc[i,f'count_{genome_label}'] = out[0,genome_to_insert_idx] - count_ref_pred
             
-    var_info.to_csv(f'{save_dir}{save_label}_variant_ism_res.csv')
+    var_info.to_csv(f'{save_dir}variant_ism_res.csv')
     
 if __name__ == '__main__':  
     
@@ -190,11 +189,10 @@ if __name__ == '__main__':
     parser.add_argument("--seqs_path")
     parser.add_argument("--ckpt_path") 
     parser.add_argument("--device",default=0,type=int) 
-    parser.add_argument("--save_label",default='') 
 
     args = parser.parse_args()
 
-    get_ism(args.save_dir, args.seqs_path, args.ckpt_path, args.device,args.save_label)                    
+    get_ism(args.save_dir, args.seqs_path, args.ckpt_path, args.device)                    
 
         
         

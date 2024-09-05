@@ -76,7 +76,7 @@ def get_attributions(x, model, baseline,attrib_type='deeplift',target_idx=2,mult
         
     return attributions 
     
-def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', num_shuffles=10, device=0, baseline_type='uniform', attrib_type='deeplift',subtract_means=True):
+def get_deeplift_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', num_shuffles=10, device=0, baseline_type='uniform', attrib_type='deeplift',subtract_means=True):
     
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
@@ -144,10 +144,10 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh
         mean = np.mean(all_seqs_res, axis=2)
         all_seqs_res = all_seqs_res - mean[:, :, np.newaxis, :] 
 
-    np.save(f'{save_dir}{save_label}_deeplift_attribs', all_seqs_res) 
+    np.save(f'{save_dir}deeplift_attribs', all_seqs_res) 
 
     
-def get_ism_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', device=0, batch_size=200):
+def get_ism_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', device=0, batch_size=200):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     seqs_all = np.load(seqs_path)
@@ -194,10 +194,10 @@ def get_ism_res(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh', de
         print(end - start)
 
         if seq_idx%1000 == 0: # don't save every time to improve speed 
-            np.save(f'{save_dir}{save_label}_ism_res', ism_res) 
+            np.save(f'{save_dir}ism_res', ism_res) 
             
     # save again at the end 
-    np.save(f'{save_dir}{save_label}_ism_res', ism_res) 
+    np.save(f'{save_dir}ism_res', ism_res) 
 
 
 
@@ -206,7 +206,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--save_dir")
-    parser.add_argument("--save_label")
     parser.add_argument("--ckpt_path")
     parser.add_argument("--seqs_path")
     parser.add_argument("--mh_or_sh",default='mh')
@@ -222,8 +221,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.which_fn=='get_deeplift_res':
-        get_deeplift_res(args.save_dir, args.ckpt_path, args.seqs_path, save_label=args.save_label, mh_or_sh=args.mh_or_sh, num_shuffles=args.num_shuffles, device=args.device, baseline_type=args.baseline_type, attrib_type=args.attrib_type)
+        get_deeplift_res(args.save_dir, args.ckpt_path, args.seqs_path, mh_or_sh=args.mh_or_sh, num_shuffles=args.num_shuffles, device=args.device, baseline_type=args.baseline_type, attrib_type=args.attrib_type)
     if args.which_fn=='get_ism_res':
-        get_ism_res(args.save_dir, args.ckpt_path, args.seqs_path, save_label=args.save_label, mh_or_sh=args.mh_or_sh, device=args.device, batch_size=args.batch_size)
+        get_ism_res(args.save_dir, args.ckpt_path, args.seqs_path, mh_or_sh=args.mh_or_sh, device=args.device, batch_size=args.batch_size)
 
     

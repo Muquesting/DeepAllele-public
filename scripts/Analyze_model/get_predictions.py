@@ -8,7 +8,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import pytorch_lightning as pl
 from DeepAllele import data, tools
 
-def save_seqs_obs_labels(save_dir, save_label, hdf5_path, batch_id='sum', split_by_chrom=True, train_or_val='val'): 
+def save_seqs_obs_labels(save_dir, hdf5_path, batch_id='sum', split_by_chrom=True, train_or_val='val'): 
     if batch_id=='':
         batch_id=None
     trainloader, valloader, train_feature, val_feature = data.load_h5(hdf5_path, 0.9, 32, batch_id=batch_id,split_by_chrom=split_by_chrom, shuffle=False)
@@ -28,12 +28,12 @@ def save_seqs_obs_labels(save_dir, save_label, hdf5_path, batch_id='sum', split_
     seqs_all=np.concatenate(seqs_all)
     obs_all=np.concatenate(obs_all)
     
-    np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_seqs', seqs_all)
-    np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_obs', obs_all)
-    np.save(f'{save_dir}{save_label}_{batch_id}_{train_or_val}_seq_labels', feats)
+    np.save(f'{save_dir}{batch_id}_{train_or_val}_seqs', seqs_all)
+    np.save(f'{save_dir}{batch_id}_{train_or_val}_obs', obs_all)
+    np.save(f'{save_dir}{batch_id}_{train_or_val}_seq_labels', feats)
 
     
-def get_predictions(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh',device=0,batch_size=32,num_workers=32): 
+def get_predictions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh',device=0,batch_size=32,num_workers=32): 
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
     model = tools.load_saved_model(ckpt_path, mh_or_sh)
@@ -52,14 +52,13 @@ def get_predictions(save_dir, ckpt_path, seqs_path, save_label='', mh_or_sh='mh'
     res_df['ratioHead'] = res[:,2]
     res_df['ratio_count_A-B'] = res[:,0]-res[:,1]
     res_df.index.name = 'seq_idx'
-    res_df.to_csv(f'{save_dir}{save_label}_{mh_or_sh}_predictions.txt', sep='\t', index=True)    
+    res_df.to_csv(f'{save_dir}{mh_or_sh}_predictions.txt', sep='\t', index=True)    
     
 if __name__ == '__main__':  
     
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--save_dir")
-    parser.add_argument("--save_label")
     parser.add_argument("--hdf5_path")
     parser.add_argument("--ckpt_path")
     parser.add_argument("--seqs_path")
@@ -73,6 +72,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.which_fn=='save_seqs_obs_labels':
-        save_seqs_obs_labels(args.save_dir, args.save_label, args.hdf5_path, batch_id=args.batch_id, split_by_chrom=args.split_by_chrom, train_or_val=args.train_or_val)
+        save_seqs_obs_labels(args.save_dir, args.hdf5_path, batch_id=args.batch_id, split_by_chrom=args.split_by_chrom, train_or_val=args.train_or_val)
     if args.which_fn=='get_predictions':
-        get_predictions(args.save_dir, args.ckpt_path, args.seqs_path, save_label=args.save_label, mh_or_sh=args.mh_or_sh,device=args.device)
+        get_predictions(args.save_dir, args.ckpt_path, args.seqs_path, mh_or_sh=args.mh_or_sh,device=args.device)
