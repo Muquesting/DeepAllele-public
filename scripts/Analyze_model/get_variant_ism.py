@@ -7,6 +7,7 @@ from collections import defaultdict
 import sys
 import torch
 from DeepAllele import tools
+from get_predictions import get_predictions
 
 def first_non_dash_index(string):
     for index, char in enumerate(string):
@@ -82,8 +83,8 @@ def save_var_info(save_dir, seqs_path):
     var_info_df = pd.DataFrame(index=seq_idxs)
     var_info_df['seq_idxs']=seq_idxs
     var_info_df['variant_idxs'] = non_matching_indices
-    var_info_df['B6_sequence'] = string0_at_non_matching
-    var_info_df['CAST_sequence'] = string1_at_non_matching
+    var_info_df['A_sequence'] = string0_at_non_matching # in this case, A is B6, B is CAST 
+    var_info_df['B_sequence'] = string1_at_non_matching
     var_info_df.to_csv(save_dir + 'variant_info.csv')
 
 def alignments_onehot(seq1, seq2):
@@ -111,8 +112,15 @@ def save_aligned_seqs(save_dir,seqs_path):
     comb_aligned = np.concatenate((genome_0_seqs, genome_1_seqs), axis=-1)
     np.save(save_dir + 'aligned_seqs', comb_aligned)
 
-def get_ism(save_dir, seqs_path, ckpt_path, device):                     
+def get_ism(save_dir, seqs_path, ckpt_path, device,save_label=''):                     
     os.makedirs(save_dir,exist_ok=True)
+    
+    # first, get predictions for all ref seqs 
+    predictions_save_name = f'{save_label}_mh_predictions.txt'
+    if predictions_save_name not in os.listdir(save_dir): 
+        print('getting predictions for ref seqs')
+        get_predictions(save_dir, ckpt_path, seqs_path, save_label,device=device)
+    preds =  pd.read_csv(f'{save_dir}{save_label}_mh_predictions.txt',index_col=0,sep='\t')
     
     # if they have not already been saved, save variant info and aligned seqs to use for variant ism     
     if 'variant_info.csv' not in os.listdir(save_dir):
@@ -129,11 +137,11 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
     model.to(device)
     var_info = pd.read_csv(save_dir + 'variant_info.csv',index_col=0)
     aligned_seqs = np.load(save_dir + 'aligned_seqs.npy')
-        
-    genome_labels = ['B6','CAST']
+    genome_labels = ['A','B']
+
     for genome_label in genome_labels:
-        var_info[f'{genome_label}_ratio']=np.zeros(len(var_info))
-        var_info[f'{genome_label}_count']=np.zeros(len(var_info))
+        var_info[f'ratio_{genome_label}']=np.zeros(len(var_info))
+        var_info[f'count_{genome_label}']=np.zeros(len(var_info))
     
     for genome_to_insert_idx in range(2): 
         print(f'genome_idx={genome_to_insert_idx}')
@@ -145,6 +153,10 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
             print(f'var_info_idx={i}')
             seq_idx = var_info.loc[i]['seq_idxs']
             print(f'seq_idx={seq_idx}')
+                        
+            count_ref_pred = preds.iloc[seq_idx][f'count_{genome_label}']
+            ratio_ref_pred = preds.iloc[seq_idx]['ratioHead']
+            
             curr_to_insert = aligned_seqs[[seq_idx],:,:,:].copy() # the aligned seqs at this seq idx
             var_position=var_info.loc[i]['variant_idxs']
             
@@ -164,12 +176,11 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
             
             curr_to_insert = torch.from_numpy(curr_to_insert).to(device, dtype=torch.float)  
             out = model(curr_to_insert).cpu().detach().numpy()
-                        
-            var_info.loc[i,f'{genome_label}_ratio'] = out[0,2]
-            var_info.loc[i,f'{genome_label}_count'] = out[0,genome_to_insert_idx]
-                
-    var_info.to_csv(f'{save_dir}variant_ism_res.csv')
-
+            
+            var_info.loc[i,f'ratio_{genome_label}'] = out[0,2] - ratio_ref_pred
+            var_info.loc[i,f'count_{genome_label}'] = out[0,genome_to_insert_idx] - count_ref_pred
+            
+    var_info.to_csv(f'{save_dir}{save_label}_variant_ism_res.csv')
     
 if __name__ == '__main__':  
     
@@ -179,9 +190,11 @@ if __name__ == '__main__':
     parser.add_argument("--seqs_path")
     parser.add_argument("--ckpt_path") 
     parser.add_argument("--device",default=0,type=int) 
+    parser.add_argument("--save_label",default='') 
+
     args = parser.parse_args()
 
-    get_ism(args.save_dir, args.seqs_path, args.ckpt_path, args.device)                    
+    get_ism(args.save_dir, args.seqs_path, args.ckpt_path, args.device,args.save_label)                    
 
         
         
