@@ -81,9 +81,7 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', num_shuffles
     
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)   
-    
-    seqs_all=seqs_all[:100]
-    
+        
     model = tools.load_saved_model(ckpt_path, mh_or_sh)
     if mh_or_sh == 'mh': 
          model = get_surrogate_model(ckpt_path)
