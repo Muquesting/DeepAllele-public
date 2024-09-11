@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 from deeplift.dinuc_shuffle import dinuc_shuffle
 from DeepAllele import model, tools, surrogate_model
 
+
 def get_surrogate_model(ckpt_path):
     # Captum DeepLift does not allow for reuse of ReLU model, which is part of deepallele's architecture.  
     #  To deal with this, we create a surrogate model for interpretation with the same weights as a provided deepallele model, 
@@ -79,7 +80,10 @@ def get_attributions(x, model, baseline,attrib_type='deeplift',target_idx=2,mult
 def get_deeplift_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', num_shuffles=10, device=0, baseline_type='uniform', attrib_type='deeplift',subtract_means=True):
     
     os.makedirs(save_dir,exist_ok=True)
-    seqs_all = np.load(seqs_path)    
+    seqs_all = np.load(seqs_path)   
+    
+    seqs_all=seqs_all[:100]
+    
     model = tools.load_saved_model(ckpt_path, mh_or_sh)
     if mh_or_sh == 'mh': 
          model = get_surrogate_model(ckpt_path)
@@ -144,7 +148,7 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', num_shuffles
         mean = np.mean(all_seqs_res, axis=2)
         all_seqs_res = all_seqs_res - mean[:, :, np.newaxis, :] 
 
-    np.save(f'{save_dir}deeplift_attribs', all_seqs_res) 
+    np.save(f'{save_dir}{mh_or_sh}_deeplift_attribs', all_seqs_res) 
 
     
 def get_ism_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', device=0, batch_size=200):
