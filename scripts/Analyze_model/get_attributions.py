@@ -157,7 +157,7 @@ def get_ism_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', device=0, batch_s
     model = tools.load_saved_model(ckpt_path, mh_or_sh)
     
     ism_res = np.zeros(seqs_all.shape)    
-    trainer = pl.Trainer(gpus=[device])
+    trainer = pl.Trainer(gpus=[device],logger=False)
 
     for seq_idx in range(seqs_all.shape[0]):
         print(seq_idx)
