@@ -11,3 +11,4 @@ output
 archive*
 *.backup
 scripts/makebashfrommd.py
+scripts/Compare_models

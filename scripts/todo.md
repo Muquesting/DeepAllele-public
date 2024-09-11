@@ -18,16 +18,5 @@
 	- [ ] and potentially at other places
 - [ ] Put sequences and attributions in npz together
 	- [ ] Change input to other scripts
-- [ ] Include scripts to extract variants and make variant calls.
-
-# Compare_model
-
-- [ ] Add folder for Compare_models
-- [ ] Define sets of well predicted ratios
-- [ ] Plot number of sets in venn diagram
-- [ ] Determine number of main variants from MH model in motifs from SH model
-	- [ ] Compare to number in MH
-- [ ] Plot main var effects against each other
-- [ ] Plot main var effects against motif diff
-- [ ] Plot motif diff or means against each other
+- [x] Include scripts to extract variants and make variant calls.
 

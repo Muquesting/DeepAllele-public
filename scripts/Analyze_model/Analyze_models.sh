@@ -33,44 +33,52 @@ ourmodelsdir=${modeldir}/${modeltype}/${initialization}/
 
 ### Get one-hot encodings of test set sequences, and measured values
 
-MISSING 
-# Returns .txt files observations and .npy or .npz for sequences.
+hdf5_path=${ourmodelsdir}$<Name of hdf5 file>
+batch_id=XXX
 
-labels=${datadir}/seq_labels.npy
-seqs=${datadir}/seqs.npy
-vals=${datadir}/vals_obs_all.txt
+python ${intdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${datadir} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
+# Returns
+seqs=${datadir}${batch_id}_${train_or_val}_seqs.npy
+obs=${datadir}${batch_id}_${train_or_val}_obs.npy
+seq_labels=${datadir}${batch_id}_${train_or_val}_seq_labels.npy
 
 ### Get model predictions for one-hot encoded test sequences
 
-MISSING
-
+ckpt_path=${ourmodelsdir}<model file.ckpt>
+device=gpu
+python ${intdir}get_predictions.py --which_fn get_predictions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --mh_or_sh ${modeltype} --device ${device}
 # Returns
-preds=${outdir}/${modeltype}/${initialization}/ref_predictions.txt
+preds=${outdir}${modeltype}_predictions.txt
 
 ### Determine sequences for which model makes reasonable ratio predictions
 
-python ${initdir}zscore_datacolumn.py $preds --column -2
+python ${intdir}zscore_datacolumn.py $preds --column -2
 
 # Use cut-offs of abs(ratio) > 1 and abs(z-score(pred.ratio))) > 1.65 to classify the data points
-python ${initdir}classify_prediction.py $vals ${preds%.txt}_zscore.txt 1. 1.65 --column1 -1 --column2 -1
+ratio_cut=1.0
+predz_cut=1.65
+python ${intdir}classify_prediction.py $vals ${preds%.txt}_zscore.txt $ratio_cut $predz_cut --column1 -1 --column2 -1
 # Returns
-validlist=${preds%.txt}_zscore_-1_eval_on_${vals%.txt}_-1_cut1.0_and_1.65.txt
+validlist=${preds%.txt}_zscore_-1_eval_on_${vals%.txt}_-1_cut${ratio_cut}_and_${predz_cut}.txt
 
 # Plot measured allelic ratios versus predicted and color by class
-python ${initdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_Measuredvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist ${validlist} --contour log --cmap grey,red --legend
+python ${intdir}scatter_comparison_plot.py $vals $preds 'Measured allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_Measuredvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist ${validlist} --contour log --cmap grey,red --legend
 
 ## 2. Compute ISM values for all variants between two alleles and identify main variant and its impact
 
-### Load the model parameters and make predictions for all test set sequences
+### Load model parameters and make predictions for inserting each variant present into each genome. Save (variant prediction - reference prediction) for each variant, each genome. 
 
-MISSING
 
+python ${intdir}get_variant_ism.py --save_dir ${outdir} --seqs_path ${seqs} --ckpt_path ${ckpt_path} --device ${device} 
 # Returns
-varA=${outdir}/${modeltype}/${initialization}/from_A/ISM_variant_effects.txt
-varB=${outdir}/${modeltype}/${initialization}/from_B/ISM_variant_effects.txt
+all_variant_ism=${outdir}variant_ism_res.csv
 
 
-python ${intdir}averageISM.py $varA $varB
+variant_info=${outdir}variant_info.csv
+aligned_sequences=${outdir}aligned_seqs.npy
+
+
+python ${intdir}averageISM.py $all_variant_ism
 # Returns
 var=${outdir}/${modeltype}/${initialization}/ISM_avg_variant_effect.txt
 
@@ -98,29 +106,24 @@ python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2
 
 ### Perform ISM on test set sequences
 
-MISSING
-python ${intdir}get_attributions.py some_input ...
+python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} 
 
 # Returns
-ism=${outdir}/${modeltype}/${initialization}/ism_res.npy
+ism=${outdir}ism_res.npy
+
 
 python ${intdir}correct_ism.py $ism
 # Returns
 ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
 
-### Perform DeepLiftShap on sequences
+### Perform DeepLift on sequences
 
-MISSING
-python ${intdir}get_attributions.py some_input ...
-
-# Returns
-deeplift=${outdir}/${modeltype}/${initialization}/deeplift_local_attribs.npy
-
-MISSING
-python ${intdir}correct_deeplift.py $deeplift
+python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} 
 
 # Returns
-deepliftatt=${outdir}/${modeltype}/${initialization}/deeplift_local_attribs.imp.npy
+deeplift=${outdir}deeplift_attribs.npy
+
+
 
 ### If available, check correlation between ISM from two models with different random initialization
 # Computes correlations between attributions maps and plots histgram
@@ -158,12 +161,12 @@ seqleteffects=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqleteffects.txt # Mea
 seqletloc=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_otherloc.txt # Locations of motif in other allele
 
 ### Cluster extracted motifs
-python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --clusteronlogp --clusternames --reverse_complement
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --distance_metric correlation_pvalue --clusternames --reverse_complement
 # Returns combined motifs for all clusters
-clustermotifs=${seqlets%.meme}ms4_cldcomplete0.05pvpfms.meme
-seqletclusters=${seqlets%.meme}ms4_cldcomplete0.015pv.txt
+clustermotifs=${seqlets%.meme}ms4_cldcomplete0.05corpvapfms.meme
+seqletclusters=${seqlets%.meme}ms4_cldcomplete0.05corpva.txt
 
-python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --clusteronlogp --clusternames --reverse_complement --approximate_cluster_on 15000
+python ${intdir}cluster_seqlets.py $seqlets complete --distance_threshold 0.05 --distance_metric correlation_pvalue --clusternames --reverse_complement --approximate_cluster_on 15000
 
 python ${intdir}cluster_seqlets.py $seqlets $seqletclusters --clusternames --reverse_complement
 
@@ -179,7 +182,7 @@ clusterlist20=${seqletclusters%.txt}_Ngte20list.txt
 python ${intdir}plot_pwm_logos.py $clustermotifs --basepwms $seqlets --clusterfile $seqletclusters --select 19,21
 
 ### Plot the extracted motifs in tree with percentage of sequence that contain motif
-python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --joinpwms 0.2 --savejoined --pwmfeatures $clusterperc barplot=True
+python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --joinpwms 0.2 --savejoined --pwmfeatures $clusterperc barplot=True+ylabel='in % of sequences'
 joinedmotifs=${clusterlist20%list.txt}joined0.2pfms.meme
 joinedmotifperc=${clusterlist20%list.txt}joined0.2pfmfeats.npz
 
@@ -199,7 +202,7 @@ clustertomtom={clustermeme%.meme}.tomtom.tsv
 python ${intdir}replace_motifname_with_tomtom_match.py ${clustertomtom} q 0.05 $clustermeme --only_best 4 --reduce_clustername '_' --reduce_nameset ';' --generate_namefile
 # Returns
 clustertfname={clustertomtom%.tomtom.tsv}q0.05best4_altnames.txt
-python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --pwmfeatures $clusterperc barplot=True --pwmnames $clustertfname
+python ${intdir}plot_pwm_tree.py $clustermotifs --set $clusterlist20 --savefig ${clusterlist20%list.txt} --reverse_complement --pwmfeatures $clusterperc barplot=True+ylabel='in % of sequences' --pwmnames $clustertfname
 
 ### Alternatively, use the joined motifs from the first plot to visualize the detected motifs in compact format
 
@@ -211,7 +214,7 @@ tomtom -thresh 0.2 -dist pearson -text ${joinedmotifs%.meme}.meme $tfdatabase > 
 python ${intdir}replace_motifname_with_tomtom_match.py ${joinedmotifs%.meme}.tomtom.txt q 0.05 ${joinedmotifs%.meme}.meme --only_best 4 --reduce_nameset ';' --generate_namefile
 
 #### Plot the compact tree with the associated TFs and short names for the clusters
-python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.meme} --reverse_complement --pwmnames ${joinedmotifs%.meme}q0.05best4_altnames.txt --pwmfeatures ${joinedmotifperc}.npz barplot=True
+python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.meme} --reverse_complement --pwmnames ${joinedmotifs%.meme}q0.05best4_altnames.txt --pwmfeatures ${joinedmotifperc}.npz barplot=True+ylabel='in % of sequences'
 
 ## 5. Analyze mechanisms that are affected by variants. 
 
