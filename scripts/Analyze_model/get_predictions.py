@@ -33,24 +33,42 @@ def save_seqs_obs_labels(save_dir, hdf5_path, batch_id='sum', split_by_chrom=Tru
     np.save(f'{save_dir}{batch_id}_{train_or_val}_seq_labels', feats)
 
     
-def get_predictions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh',device=0,batch_size=32,num_workers=32): 
+def get_predictions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh',device=0,batch_size=32,num_workers=32):     
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
     model = tools.load_saved_model(ckpt_path, mh_or_sh)
-    trainer = pl.Trainer(gpus=[device])
-    placeholder_y = np.zeros((len(seqs_all),3))
-    dataset = TensorDataset(torch.from_numpy(seqs_all), torch.from_numpy(placeholder_y)) # y is placeholder 
-    loader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
-    )
-    res = trainer.predict(model, loader)
-    res=torch.cat(res).numpy()
-    
-    res_df = pd.DataFrame()
-    res_df['count_A'] = res[:,0]
-    res_df['count_B'] = res[:,1]
-    res_df['ratioHead'] = res[:,2]
-    res_df['ratio_count_A-B'] = res[:,0]-res[:,1]
+    trainer = pl.Trainer(accelerator='gpu' if device != 'cpu' else 'cpu', devices=[int(device)] if device != 'cpu' else 1)
+        
+    if mh_or_sh=='mh':
+        placeholder_y = np.zeros((len(seqs_all),3))
+        dataset = TensorDataset(torch.from_numpy(seqs_all), torch.from_numpy(placeholder_y)) # y is placeholder 
+        loader = DataLoader(
+        dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        res = trainer.predict(model, loader)
+        res=torch.cat(res).numpy()
+        
+        res_df = pd.DataFrame()
+        res_df['count_A'] = res[:,0]
+        res_df['count_B'] = res[:,1]
+        res_df['ratioHead'] = res[:,2]
+        res_df['ratio_count_A-B'] = res[:,0]-res[:,1]
+        
+    elif mh_or_sh=='sh': 
+        placeholder_y = np.zeros((len(seqs_all),1))
+        dataset_A = TensorDataset(torch.from_numpy(seqs_all[:,:,:,0]), torch.from_numpy(placeholder_y)) # y is placeholder 
+        dataset_B = TensorDataset(torch.from_numpy(seqs_all[:,:,:,1]), torch.from_numpy(placeholder_y)) # y is placeholder 
+        loader_A = DataLoader(dataset_A, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        loader_B = DataLoader(dataset_B, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+        res_A = trainer.predict(model, loader_A)
+        res_B = trainer.predict(model, loader_B)
+        res_A=torch.cat(res_A).numpy()[:,0,0] # [:,1,0] is obs
+        res_B=torch.cat(res_B).numpy()[:,0,0] # [:,1,0] is obs
+
+        res_df = pd.DataFrame()
+        res_df['count_A'] = res_A
+        res_df['count_B'] = res_B
+        res_df['ratio_count_A-B'] = res_A -res_B
     res_df.index.name = 'seq_idx'
     res_df.to_csv(f'{save_dir}{mh_or_sh}_predictions.txt', sep='\t', index=True)    
     
@@ -63,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("--ckpt_path")
     parser.add_argument("--seqs_path")
     parser.add_argument("--mh_or_sh",default='mh')
-    parser.add_argument("--device",default=0,type=int)
+    parser.add_argument("--device",default=0)
     parser.add_argument("--batch_id",default='')
     parser.add_argument("--which_fn")
     parser.add_argument("--split_by_chrom",default=1,type=int)
