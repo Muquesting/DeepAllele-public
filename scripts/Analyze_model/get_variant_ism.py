@@ -80,7 +80,7 @@ def save_var_info(save_dir, seqs_path):
                     j+=1
             else: 
                 j+=1
-    var_info_df = pd.DataFrame(index=seq_idxs)
+    var_info_df = pd.DataFrame()
     var_info_df['seq_idxs']=seq_idxs
     var_info_df['variant_idxs'] = non_matching_indices
     var_info_df['A_sequence'] = string0_at_non_matching # in this case, A is B6, B is CAST 
@@ -158,6 +158,8 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
             
             curr_to_insert = aligned_seqs[[seq_idx],:,:,:].copy() # the aligned seqs at this seq idx
             var_position=var_info.loc[i]['variant_idxs']
+            
+            print(var_position)
             
             if len(var_position.split(':'))==1: # SNP
                 start_insert = int(var_position)
