@@ -56,7 +56,7 @@ use batch_id=sc
 python ${intdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${datadir} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
 # Returns
 seqs=${datadir}${batch_id}_${train_or_val}_seqs.npy
-obs=${datadir}${batch_id}_${train_or_val}_obs.npy
+vals=${datadir}${batch_id}_${train_or_val}_obs.npy
 seq_labels=${datadir}${batch_id}_${train_or_val}_seq_labels.npy
 ```
 
@@ -125,7 +125,7 @@ varpred=${var%.txt}_seqpred.txt
 ### Check how well the sum if individual variant effects represents predictions
 
 ```
-python ${intidir}scatter_comparison_plot.py $varpred $pred 'Sum ISM effects on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_SumVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red
+python ${intidir}scatter_comparison_plot.py $varpred $pred 'Sum ISM effects on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_SumVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red --legend
 ```
 
 ### Determine main variant
@@ -138,12 +138,12 @@ mainvar=${var%.txt}_mainvar.txt
 ### Plot main variant effect versus predicted effect with coloring of predictable cases
 
 ```
-python ${intdir}scatter_comparison_plot.py $mainvar $pred 'Main variant ISM effect on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red
+python ${intdir}scatter_comparison_plot.py $mainvar $pred 'Main variant ISM effect on allelic log2-ratio' 'Predicted allelic log2-ratio' --column -1 -2 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvspredicted_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red --legend
 ```
 
 ### Plot main variant effect versus measured effect with coloring of predictable cases
 ```
-python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2-ratio' 'Main variant ISM effect on allelic log2-ratio' --column -1 -1 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvsmeasured_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red -xlim -2.5,3.5 -ylim -2.5,3.
+python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2-ratio' 'Main variant ISM effect on allelic log2-ratio' --column -1 -1 --savefig ${outdir}/${modeltype}/${initialization}/LogAllelicRatio_mainVarDAvsmeasured_predictabilitycolor --alpha 0.8 --plotdiagonal --zeroxaxis --zeroyaxis --vlim 0,1 --size 5 --lw 0 --colorlist $validlist --contour log --cmap grey,red --legend
 ```
 
 ## 3. Compute sequence attributions
@@ -151,7 +151,7 @@ python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2
 ### Perform ISM on test set sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} 
+python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --mh_or_sh ${modeltype}
 
 # Returns
 ism=${outdir}ism_res.npy
@@ -163,16 +163,15 @@ Attributions from ISM are generated from the zero-sum gauge of the linear approx
 ```
 python ${intdir}correct_ism.py $ism
 # Returns
-ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
+ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy 
 ```
 
 ### Perform DeepLift on sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} 
-
+python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --mh_or_sh ${modeltype}
 # Returns
-deeplift=${outdir}deeplift_attribs.npy
+deeplift=${outdir}${modeltype}_deeplift_attribs.npy
 
 ```
 By default, this saves hypothetical attributions from a uniform baseline. 
@@ -214,7 +213,10 @@ python ${intdir}plot_attributions.py $ism_example ${seq_example} --ratioattribut
 Attributions are normalized to Z-scores and significant positions are determined with a threshold of 1.96. Seqlets are extracted if 4 or more subsequent positions with at max one gap are siginficant. Seqlets are saved in .meme file with the direction of the attributions being adjusted to the sign of their mean. Moreover, statistics are kept about the location of the seqlet in both sequences (after alignment), and the mean difference of these motifs for downstream analysis. 
 
 ```
-python ${intdir}extract_motifs.py $labels $ismatt $seqs 1.96 1 4 --normed --ratioattributions
+minsig=4 # Minimum number of bases to be called a motif
+maxgap=1 # Maximum number of bases below cutoff within a motif
+cut=1.96 # Cutoff for Z-scored bases
+python ${intdir}extract_motifs.py $labels $ismatt $seqs --cut 1.96 --maxgap 1 --minsig 4
 # Returns
 seqlets=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqlets.meme # Z-scored and sign adjusted seqlets from attribution map
 seqstats=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqmotifstats.txt # Motif statistics for each sequence, how many common, and how many unique
@@ -330,12 +332,12 @@ python ${intdir}plot_pwm_tree.py $joinedmotifs --savefig ${joinedmotifs%.meme} -
 
 Compare locations of motifs and main variants and determine if the main variant is obviously disturbing TF binding
 ```
-python ${intdir}motif_variant_location.py $mainvar $seqletclusters $seqletloc $validlist --savemotiflist --TFenrichment $clustertomtom
+python ${intdir}motif_variant_location.py $mainvar $seqletclusters $seqletloc $validlist --saveclusterstats --savemotiflist --TFenrichment $clustertomtom
 # Returns pie chart and list of clusters affected by a variant
 ```
 `--TFenrichment` uses all TF names in the tomtom file associated with a cluster (p<0.05) that is affected by a variant, then sums over the -log10 p-values multiplied with the number of affected motifs for that cluster, and reassigns the TF names of the clusters based on the TF with the highest probability to affect these motifs. We call these motifs TF-like motifs to summarize which TF is likely affecting the motif based on the amount of affected motif and not only on the often noisy motif matches.
 
-
+### Plot tree only with the motifs that are affected
 
 
 

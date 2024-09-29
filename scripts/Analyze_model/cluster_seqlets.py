@@ -172,6 +172,7 @@ if __name__ == '__main__':
         
         if not os.path.isfile(args.linkage):
             # Align and compute correlatoin between seqlets using torch conv1d.
+            print(f'Computing distance matrix for {len(pwm_set)} motifs')
             correlation, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, metric = args.distance_metric, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = args.approximate_distance, return_alignment = True)
             
             # Save computed statistics for later
@@ -208,7 +209,7 @@ if __name__ == '__main__':
                     outname += dm[:3] 
             else:
                 outname += args.distance_metric[:3]
-            
+        print(f'Performing agglomerative clustering with {args.linkage} linkage and a treshold of {args.distance_threshold}') 
         clustering = AgglomerativeClustering(n_clusters = args.n_clusters, metric = 'precomputed', linkage = args.linkage, distance_threshold = args.distance_threshold).fit(correlation)
         
         clusters = clustering.labels_

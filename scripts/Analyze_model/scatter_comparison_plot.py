@@ -53,8 +53,8 @@ if __name__ == '__main__':
         delimiter2 = sys.argv[sys.argv.index('--delimiter2')+1]
     
     # Read in matrices with data
-    names1, header1, vals1 = read_matrix_file(file1, delimiter = delimiter1)
-    names2, header2, vals2 = read_matrix_file(file2, delimiter = delimiter2)
+    names1, header1, vals1 = read_matrix_file(file1, delimiter = delimiter1, header = 'auto')
+    names2, header2, vals2 = read_matrix_file(file2, delimiter = delimiter2, header = 'auto')
     
     # Make sure data points are matching
     sort1 = np.argsort(names1)[np.isin(np.sort(names1), names2)]

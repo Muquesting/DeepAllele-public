@@ -154,9 +154,13 @@ def read_matrix_file(filename, delimiter = None, name_column = 0, data_start_col
     f = open(filename, 'r').readlines()
     columns, rows, values = None, [], []
     if header is not None:
-        if f[0][:len(header)] == header:
-            columns = f[0].strip(header).strip().replace(strip_names,'').split(delimiter)
+        if header == 'auto': 
+            if not isfloat(f[0].strip().split(delimiter)[-1]):
+                columns = f[0].strip().replace(strip_names,'').split(delimiter)
 
+        elif f[0][:len(header)] == header:
+            columns = f[0].strip(header).strip().replace(strip_names,'').split(delimiter)
+    
     start = 0
     if columns is not None:
         start = 1
@@ -186,9 +190,9 @@ def read_matrix_file(filename, delimiter = None, name_column = 0, data_start_col
         values = np.array(values, dtype = value_dtype)
     except:
         ValueError
-        values = np.array(values)
+        values = np.array(values, dtype = object)
         print("matrix could not be converted to floats")
-
+    
     if (values == np.nan).any():
         print('ATTENTION nan values in data matrix.', filename)
         if nan_value is not None:

@@ -25,6 +25,7 @@ if __name__ == '__main__':
     else:
         outname = None
         dpi = None
+    # If to save pwms and features after joining them in this script for visialization
     if '--savejoined' in sys.argv and outname is None:
         outname = os.path.splitext(pwmfile)[0]
     
@@ -108,11 +109,12 @@ if __name__ == '__main__':
     if '--heatmap' in sys.argv:
         noheatmap, measurex = False, 'euclidean'
         # read in heatmap
-        data_start = 1 # Column where data starts
-        heatmap = np.genfromtxt(sys.argv[sys.argv.index('--heatmap')+1], dtype = str)
-        heatnames = heatmap[:,0]
-        heatmap = heatmap[:, 1:].astype(float)
-        xticklabels = np.array(open(sys.argv[sys.argv.index('--heatmap')+1], 'r').readline().strip('#').strip().split())[1:]
+        
+        start_data = 1# Column where data starts
+        if '--start_heatmap' in sys.argv:
+            start_data = int(sys.argv[sys.argv.index('--start_heatmap')+1])
+        heatnames, xticklabels, heatmap = readalign_matrix_files(sys.argv[sys.argv.index('--heatmap')+1], data_start_column = start_data)
+        
         if not np.array_equal(heatnames, pwmnames): # compare the heatmap names to pwms
             sort = [] # sort if necessary
             for p, pwn in enumerate(pwmnames):
@@ -217,9 +219,9 @@ if __name__ == '__main__':
         if outname is not None:
             outname += heatdist[:3]
     else:
-        correlation, logs, ofs, revcomp_matrix = torch_compute_similarity_motifs(pwms, pwms, fill_logp_self = 1000, min_sim = min_sim, infocont = False, reverse_complement = revcom_array, exact = True)
+        correlation, ofs, revcomp_matrix = torch_compute_similarity_motifs(pwms, pwms, metric = 'correlation', min_sim = min_sim, infocont = False, reverse_complement = revcom_array, return_alignment= True, exact = True)
         # For visualization purposes, it might be better join motifs if they are too similar
-        if '--joinpwms' in sys.argv and heatmap is None:
+        if '--joinpwms' in sys.argv:
             distance_threshold=float(sys.argv[sys.argv.index('--joinpwms')+1]) # define the
             # threshold at which two motifs are combined
             outname += 'joined'+str(distance_threshold)+'pfm'
@@ -227,13 +229,13 @@ if __name__ == '__main__':
             newclusters = newclustering.labels_
             # combine the pwms for cluster
             
-            clusterpwms = combine_pwms(np.array(pwms, dtype = object), newclusters, logs, ofs, revcomp_matrix)
+            clusterpwms = combine_pwms(np.array(pwms, dtype = object), newclusters, 1-correlation, ofs, revcomp_matrix)
             # combine the names
             clusternames = [';'.join(np.array(yticklabels)[newclusters == i]) for i in np.unique(newclusters)]
             yticklabels, pwms = np.array(clusternames), clusterpwms
             
             # Compute new relationship
-            correlation, logs, ofs, revcomp_matrix = torch_compute_similarity_motifs(pwms, pwms, fill_logp_self = 1000, min_sim = min_sim, infocont = False, reverse_complement = revcom_array, exact = True)
+            correlation, ofs, revcomp_matrix = torch_compute_similarity_motifs(pwms, pwms, metric = 'correlation', min_sim = min_sim, infocont = False, reverse_complement = revcom_array, return_alignment = True, exact = True)
             
             if pwmfeatures is not None: # Combine their features as well
                 additive = False
@@ -250,7 +252,20 @@ if __name__ == '__main__':
                     for u,uc in enumerate(unclusters):
                         newpwmfeatures.append([np.concatenate(np.array(pwmfeatures)[newclusters == uc])])
                 pwmfeatures = newpwmfeatures
+            if heatmap is not None:
+                unclusters = np.unique(newclusters)
+                newheatmap = np.zeros((len(unclusters), heatmap.shape[-1]))
+                heatjoin= 'mean'
+                if '--heatjoin' in sys.argv:
+                    heatjoin = sys.argv[sys.argv.index('--heatjoin')+1]
+                for u,uc in enumerate(unclusters):
+                    if heatjoin == 'max':
+                        argmax = np.argmax(np.abs(heatmap[newclusters == uc]), axis = 0)
+                        newheatmap[u] = heatmap[newclusters == uc][(argmax, np.arange(heatmap.shape[-1]))]
+                    else:
+                        newheatmap[u] = np.mean(heatmap[newclusters == uc], axis = 0)
                 
+            
             print('Joined to ', len(pwms))
             if '--savejoined' in sys.argv:
                 write_meme_file(clusterpwms, clusternames, 'ACGT', outname +'s.meme')

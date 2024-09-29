@@ -59,8 +59,10 @@ if __name__ == '__main__':
     for p, pwm in enumerate(pwm_set):
         name = pwmnames[p]
         pwm = pwm_set[p]
-        
         outadd = ''
+        if '--reverse_complement' in sys.argv:
+            pwm=reverse(pwm)
+            outadd += 'rev'
         if bpwmnames is not None:
             pwm = [pwm]
             outadd = 'wset'

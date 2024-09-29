@@ -34,12 +34,12 @@ if __name__ == '__main__':
     parser.add_argument('--maxgap', type=int, default = 1, help = 'Maximum number of gap bases')
     parser.add_argument('--minsig', type=int, default = 4, help='Minimum number of subsequent significant bases to call something a motif.')
     
-    parser.add_argument('--atreference', action='store_false', help='If True, uses attribution at reference to extract motifs, otherwise, uses the max attribution at a given position')
-    parser.add_argument('--normed', action='store_false', help='If True attributions will be normalized before ')
-    parser.add_argument('--ratioattributions', action='store_false', help='If True attributions are coming from the ratio head and need to be adjusted for sign')
+    parser.add_argument('--maxattribution', action='store_true', help='If True, uses attribution the max attribution at a given position and not the one at reference')
+    parser.add_argument('--unnormed', action='store_true', help='If True attributions will not be normalized before ')
+    parser.add_argument('--countattributions', action='store_true', help='If True attributions are coming from the count head and do not need to be adjusted for sign')
     parser.add_argument('--outname', type=str, default = None)
     parser.add_argument('--verbose', action='store_true')
-    
+    parser.add_argument('--z', default = None, type = float, help='Define the denominator to normalize attributions')
     args = parser.parse_args()
     
     
@@ -61,17 +61,19 @@ if __name__ == '__main__':
     amaxdiff = []
     
     z = 1
-    if args.normed:
+    if not args.unnormed:
         z=np.sqrt(np.mean(atts**2)) # compute standard deviation to mean = 0
+    if args.z is not None:
+        z = args.z
     ro = abs(check_decimal(z) -3) # estimate rounding precision for mean, max stats
-
+    print('Norm Z', z)
 
     names = []
     for s, stat in enumerate(stats):
         name = 'seq_idx_'+str(s)+'_'+stat
         ism = atts[s]
         names.append(name)
-        if args.ratioattributions:
+        if not args.countattributions:
             ism[...,-1] = -ism[...,-1]
         if args.verbose:
             print(name)
@@ -93,7 +95,7 @@ if __name__ == '__main__':
         seqmotifs = []
         
         for j in range(2): # iterate over both seqences
-            if args.atreference:
+            if not args.maxattribution:
                 refatts = np.sum(zsm[:lseqs[j],:,j] * seqonehot[:lseqs[j], :,j],axis =1)
             else:
                 refatts = np.argmax(np.absolute(zsm[:lseqs[j],:,j]), axis = 1)

@@ -21,13 +21,16 @@ def assign_motifcluster_to_location(motifclusters, motifalign):
     '''
     motifloc = []
     motifclust = []
+    motifnames = []
     for m, mn in enumerate(motifclusters[:,0]):
         loc = np.arange(int(motifalign[m,1].split(',')[0]), int(motifalign[m,1].split(',')[-1])+1, dtype = int)
         motifloc.append(loc)
         motifclust.append([motifclusters[m,1] for l in range(len(loc))])
+        motifnames.append([motifclusters[m,0] for l in range(len(loc))])
     motifloc = np.array(motifloc)
     motifclust = np.array(motifclust)
-    return motifloc, motifclust
+    motifnames = np.array(motifnames)
+    return motifloc, motifclust, motifnames
 
 def variant_locations(mainvar):
     '''
@@ -58,6 +61,8 @@ def assign_cluster_to_variant(mainvar, varloc, motifloc, motifclust):
                 varclust.append(hitclust[0])
             elif len(hitclust) > 1:
                 varclust.append(hitclust[np.argmax(hn)])
+            elif len(hitclust) == 0:
+                varclust.append('NAN')
         else:
             varclust.append('NAN')
     return np.array(varclust)
@@ -102,6 +107,20 @@ def assign_tfnames_to_clusters_frequencies(tfnames, pvalues, tfcluster, clusters
     clusters, nseqincluster = clusters[sort], nseqincluster[sort]
     return clusters, nseqincluster
 
+def assign_motif_to_variant(motifclusters, motifalign, mainvar):
+
+    # Extract motif location and assign each location the defined cluser id
+    motifloc, motifclust, motifnames = assign_motifcluster_to_location(motifclusters, motifalign)
+
+    # Make variant locations comparable to motiflocs
+    varloc = variant_locations(mainvar)
+
+    # Determine cluster id of motif that every variant falls into
+    varclust = assign_cluster_to_variant(mainvar, varloc, motifloc, motifclust)
+    # Determine motifname id of motif that every variant falls into
+    varmotif = assign_cluster_to_variant(mainvar, varloc, motifloc, motifnames)
+    return varclust, varmotif
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                     prog='motif_variant_location',
@@ -119,6 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--outname', type=str, default = None,
                         help = 'Define outname')
     parser.add_argument('--savemotiflist', action='store_true')
+    parser.add_argument('--saveclusterstats', action = 'store_true')
 
     args = parser.parse_args()
     
@@ -130,29 +150,31 @@ if __name__ == '__main__':
     outname = args.outname
     if args.outname is None:
         outname = f'{os.path.splitext(args.mainvarfile)[0]}_in_{os.path.splitext(os.path.split(args.clusterfile)[1])[0]}'
+    
+    # Sort motifalign to only contain the entrances for motifs with cluster
+    motifclusters=motifclusters[np.argsort(motifclusters[:,0])]
+    motifalign=motifalign[np.argsort(motifalign[:,0])[np.isin(np.sort(motifalign[:,0]),motifclusters[:,0])]]
+    
 
     if not np.array_equal(motifclusters[:,0], motifalign[:,0]):
         print('Warning: motifclusters and motiflocations dont contain same motifs')
         sys.exit()
     # Generate sequence ids for motifs in motifclusters and motifalign
     motifseq = np.array(['seq_idx_'+m.split('_')[2] for m in motifclusters[:,0]])
-
+    print(f'Checking main variants for {len(seqnames)} sequences')
+    
     # Reduce mainvar, motifclusters, and motifalign to sequences in seqnames
     motmask = np.argsort(motifseq)[np.isin(np.sort(motifseq), seqnames)]
+    print(f'Cluster information for {len(motmask)} motifs available')
     motifalign, motifclusters, motifseq = motifalign[motmask], motifclusters[motmask], motifseq[motmask]
     # Sort main also alphabetically 
     varmask = np.argsort(mainvar[:,0])[np.isin(np.sort(mainvar[:,0]), seqnames)]
     mainvar = mainvar[varmask]
-
-    # Extract motif location and assign each location the defined cluser id
-    motifloc, motifclust = assign_motifcluster_to_location(motifclusters, motifalign)
-
-    # Make variant locations comparable to motiflocs
-    varloc = variant_locations(mainvar)
-
-    # Determine cluster id of motif that every variant falls into
-    varclust = assign_cluster_to_variant(mainvar, varloc, motifloc, motifclust)
+    print(f'{len(mainvar)} main variants identified')
     
+    # determine motif and motifcluster for main variants
+    varclust, varmotif = assign_motif_to_variant(motifclusters, motifalign, mainvar)
+
     N=len(varclust)
     print(f'{N} variants investigated')
     percoutside = round(np.sum(varclust == 'NAN')*100/len(varclust),2)
@@ -160,7 +182,9 @@ if __name__ == '__main__':
     meanNinside = round(np.sum(varclust != 'NAN')/len(np.unique(varclust)),1)
     print(f'Mean number of sequences in a motif cluster {meanNinside}')
     
-    
+    if args.savemotiflist:
+        np.savetxt(outname+'_motifset.txt', np.array([mainvar[:,0], mainvar[:,1], varmotif, varclust]).T, fmt = '%s')
+        print(f'Saved affected motifs in {os.path.splitext(args.mainvarfile)[0]}_motifset.txt')
 
     # Return number of sequenes that are affecte by a cluster
     cl, cln = np.unique(varclust[varclust != 'NAN'], return_counts = True)
@@ -168,8 +192,8 @@ if __name__ == '__main__':
     cl, cln = cl[sort], (cln[sort]/N)*100
 
     # only put cluster names into the nameset if they have more than one sequence that they affect
-    if args.savemotiflist:
-        np.savetxt(os.path.splitext(args.mainvarfile)[0]+'_clusterset.txt', np.array([cl, cln]).T, fmt = '%s')
+    if args.saveclusterstats:
+        np.savetxt(outname+'_clusterset.txt', np.array([cl, cln]).T, fmt = '%s')
         print(f'Saved affected clusters in {os.path.splitext(args.mainvarfile)[0]}_clusterset.txt')
 
     if args.TFenrichment is not None:
