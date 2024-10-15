@@ -69,6 +69,8 @@ def get_predictions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh',device=0,batch
         res_df['count_A'] = res_A
         res_df['count_B'] = res_B
         res_df['ratio_count_A-B'] = res_A -res_B
+        res_df.index = [f'seq_idx_{i}' for i in range(len(res_df))]
+        
     res_df.index.name = 'seq_idx'
     res_df.to_csv(f'{save_dir}{mh_or_sh}_predictions.txt', sep='\t', index=True)    
     
