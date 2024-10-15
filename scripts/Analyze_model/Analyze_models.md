@@ -16,11 +16,13 @@ Use `download_models.sh` to download the processed data and trained models from 
 scriptdir=/PATH/to/DeepAllele-public/scripts/ #path to scripts
 intdir=${scriptdir}/Analyze_models/ $ path to analysis scripts
 
+# For example 
+dataset=atac0/ # for some ATAC-seq data set
+
 modeldir=/PATH/to/${dataset}/models/ # path to model parameters
 datadir=/PATH/to/${dataset}/data/ # path to data 
 outdir=/PATH/to/${dataset}/results/ # path to results
-# For example 
-dataset=atac0/ # for some ATAC-seq data set
+
 ```
 
 We assume that the results of this analysis will be saved in the following structure:
@@ -158,7 +160,7 @@ ism=${outdir}ism_res.npy
 
 ```
 
-Subtract mean from ISM to get attribution maps.
+Subtract mean from ISM to get attribution maps (other types of attributions don't need this)
 Attributions from ISM are generated from the zero-sum gauge of the linear approximation. 
 ```
 python ${intdir}correct_ism.py $ism
@@ -216,12 +218,12 @@ Attributions are normalized to Z-scores and significant positions are determined
 minsig=4 # Minimum number of bases to be called a motif
 maxgap=1 # Maximum number of bases below cutoff within a motif
 cut=1.96 # Cutoff for Z-scored bases
-python ${intdir}extract_motifs.py $labels $ismatt $seqs --cut 1.96 --maxgap 1 --minsig 4
+python ${intdir}extract_motifs.py $labels $ismatt $seqs --cut $cut --maxgap $maxgap --minsig $minsig
 # Returns
-seqlets=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqlets.meme # Z-scored and sign adjusted seqlets from attribution map
-seqstats=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqmotifstats.txt # Motif statistics for each sequence, how many common, and how many unique
-seqleteffects=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_seqleteffects.txt # Mean effect, Delta mean, Max effect, delta max effect
-seqletloc=${ismatt%.npy}_seqlets.cut1.96maxg1minsig4_otherloc.txt # Locations of motif in other allele
+seqlets=${ismatt%.npy}_seqlets.cut${cut}maxg${maxgap}minsig${minsig}_seqlets.meme # Z-scored and sign adjusted seqlets from attribution map
+seqstats=${ismatt%.npy}_seqlets.cut${cut}maxg${maxgap}minsig${minsig}_seqmotifstats.txt # Motif statistics for each sequence, how many common, and how many unique
+seqleteffects=${ismatt%.npy}_seqlets.cut${cut}maxg${maxgap}minsig${minsig}_seqleteffects.txt # Mean effect, Delta mean, Max effect, delta max effect
+seqletloc=${ismatt%.npy}_seqlets.cut${cut}maxg${maxgap}minsig${minsig}_otherloc.txt # Locations of motif in other allele
 ```
 
 ### Cluster extracted motifs
@@ -278,7 +280,7 @@ joinedmotifperc=${clusterlist20%list.txt}joined0.2pfmfeats.npz
 
 Filter and normalize CWMs to classical pwms for usage with tomtom
 ```
-python ${intdir}parse_motifs_tomeme.py.py $clustermotifs --standardize --exppwms --norm --strip 0.1 --round 3 --set $clusterlist20
+python ${intdir}parse_motifs_tomeme.py $clustermotifs --standardize --exppwms --norm --strip 0.1 --round 3 --set $clusterlist20
 # Returns normalized Position probability matrices
 clustermeme=${seqlets%.meme}_Ngte20list.meme
 ```
@@ -311,7 +313,7 @@ Normalize the joined and combined PWM from the previous plot
 python ${intdir}parse_motifs_tomeme.py.py $joinedmotifs --standardize --exppwms --norm --strip 0.1 --round 3 
 ```
 
-Run tomtom
+Run tomtom for the joined motifs
 ```
 tomtom -thresh 0.2 -dist pearson -text ${joinedmotifs%.meme}.meme $tfdatabase > ${joinedmotifs%.meme}.tomtom.tsv
 ```
@@ -334,11 +336,14 @@ Compare locations of motifs and main variants and determine if the main variant 
 ```
 python ${intdir}motif_variant_location.py $mainvar $seqletclusters $seqletloc $validlist --saveclusterstats --savemotiflist --TFenrichment $clustertomtom
 # Returns pie chart and list of clusters affected by a variant
+affmotiflist=ISM_avg_variant_effect_mainvar_in_mh_grad_attribs_seqlets.cut1.96maxg1minsig4_seqletsms4_cldcomplete0.05corpva_motifset.txt
+affclusterstats=ISM_avg_variant_effect_mainvar_in_mh_grad_attribs_seqlets.cut1.96maxg1minsig4_seqletsms4_cldcomplete0.05corpva_clusterset.txt
 ```
 `--TFenrichment` uses all TF names in the tomtom file associated with a cluster (p<0.05) that is affected by a variant, then sums over the -log10 p-values multiplied with the number of affected motifs for that cluster, and reassigns the TF names of the clusters based on the TF with the highest probability to affect these motifs. We call these motifs TF-like motifs to summarize which TF is likely affecting the motif based on the amount of affected motif and not only on the often noisy motif matches.
 
-### Plot tree only with the motifs that are affected
-
-
+### Plot tree only with the motifs that are affected and the percentages of sequences that they are affecting
+```
+python ${intdir}plot_pwm_tree.py $clustermotifs --set $affclusterstats --savefig ${affclusterstats%.txt} --reverse_complement --pwmfeatures $affclusterstats barplot=True+ylabel='% affected by variant' --pwmnames $clustertfname
+```
 
 

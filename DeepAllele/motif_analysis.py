@@ -412,9 +412,9 @@ def torch_compute_similarity_motifs(ppms, ppms_ref,
                 pad = plp-min_sim
                 with torch.no_grad():
                     for b in range(0,lq, batchsize):
-                        res.append(padded_weight_conv1d(qpm[b:b+batchsize], ppm, min_sim, padding = padding, centered = centered, standard = standard).transpose(0,1))
+                        res.append(padded_weight_conv1d(qpm[b:b+batchsize].to(device), ppm.to(device), min_sim, padding = padding, centered = centered, standard = standard).transpose(0,1))
                         if rcmat[ppms_indeces[p]][:,ppms_ref_indeces[q]].any(): # check for reverse complement for any combination
-                            resrev.append(padded_weight_conv1d(qpm[b:b+batchsize], reverse_torch(ppm), min_sim, padding = padding, centered = centered, standard = standard).transpose(0,1))
+                            resrev.append(padded_weight_conv1d(qpm[b:b+batchsize].to(device), reverse_torch(ppm).to(device), min_sim, padding = padding, centered = centered, standard = standard).transpose(0,1))
                         else:
                             resrev = None
             else:
@@ -424,9 +424,9 @@ def torch_compute_similarity_motifs(ppms, ppms_ref,
                     with torch.no_grad():
                         for b in range(0,lq, batchsize):
                             qpmp = F.pad(qpm[b:b+batchsize], (pad, pad), 'constant', padding)
-                            res.append(torch.conv1d(qpmp, ppm).transpose(0,1)/plp/cha)
+                            res.append(torch.conv1d(qpmp.to(device), ppm.to(device)).transpose(0,1)/plp/cha)
                             if rcmat[ppms_indeces[p]][:,ppms_ref_indeces[q]].any():
-                                resrev.append(torch.conv1d(qpmp, reverse_torch(ppm)).transpose(0,1)/plp/cha)
+                                resrev.append(torch.conv1d(qpmp.to(device), reverse_torch(ppm).to(device)).transpose(0,1)/plp/cha)
                             else:
                                 resrev = None
                 else:
@@ -434,9 +434,9 @@ def torch_compute_similarity_motifs(ppms, ppms_ref,
                     with torch.no_grad():
                         for b in range(0,lq, batchsize):
                             ppmp = F.pad(ppm, (pad, pad), 'constant', padding)
-                            res.append(torch.conv1d(ppmp, qpm[b:b+batchsize])/plq/cha)
+                            res.append(torch.conv1d(ppmp.to(device), qpm[b:b+batchsize].to(device))/plq/cha)
                             if rcmat[ppms_indeces[p]][:,ppms_ref_indeces[q]].any():
-                                resrev.append(torch.conv1d(ppmp, reverse_torch(qpm[b:b+batchsize]))/plq/cha)
+                                resrev.append(torch.conv1d(ppmp.to(device), reverse_torch(qpm[b:b+batchsize]).to(device))/plq/cha)
                             else:
                                 resrev = None
             

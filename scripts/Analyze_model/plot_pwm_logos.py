@@ -9,17 +9,29 @@ from DeepAllele.motif_analysis import torch_compute_similarity_motifs, reverse, 
 from DeepAllele.io import numbertype, isint, readin_motif_files
 from DeepAllele.plotlib import plot_pwms
 
-    
+import argparse    
     
 if __name__ == '__main__':  
-    pwmfile = sys.argv[1]
+    
+    parser = argparse.ArgumentParser(prog='plot_pwm_logos',
+                    description='plot logos, or add logos that were aligned to generate logo')
+    parser.add_argument('pwmfile', type=str)
+    parser.add_argument('--select', type=str, default = None, help='Set of logo names in pwmfile that should be plotted')
+    parser.add_argument('--basepwms', type=str, default = None, help = 'Meme file with pwms that were used to generate the pwms in pwmfile. 20 of these will be aligned and plotted with the pwm in pwmfile.')
+    parser.add_argument('--clusterfile', type=str, default = None, help='Assignment of basepwms to pwms in pwmfile')
+    parser.add_argument('--infocont', action='store_true', help='If True, logos are converted to information content')
+    parser.add_argument('--reverse_complement', action='store_true', help='If True the logo will be reversed. Only works for ACGT order')
+    
+    args = parser.parse_args()
+    
+    pwmfile = args.pwmfile
     infmt = os.path.splitext(pwmfile)[1]
     outname = os.path.splitext(pwmfile)[0]
     
     pwm_set, pwmnames, nts = readin_motif_files(pwmfile)
 
-    if '--select' in sys.argv:
-        select = sys.argv[sys.argv.index('--select')+1]
+    if args.select is not None:
+        select = args.select
         if ',' in select:
             select = select.split(',')
         else:
@@ -33,15 +45,15 @@ if __name__ == '__main__':
         pwmnames = pwmnames[select]
     
     bpwmnames = None
-    if '--basepwms' in sys.argv:
-        bpwm_set, bpwmnames, nts = readin_motif_files(sys.argv[sys.argv.index('--basepwms')+1])
-        if '--clusterfile' in sys.argv: # Need to be in same order
-            bpwm_cluster = np.genfromtxt(sys.argv[sys.argv.index('--clusterfile')+1], dtype = str)
+    if args.basepwms is not None:
+        bpwm_set, bpwmnames, nts = readin_motif_files(args.basepwms)
+        if args.clusterfile is not None: # Need to be in same order
+            bpwm_cluster = np.genfromtxt(args.clusterfile, dtype = str)
             if not np.array_equal(bpwm_cluster[:,0], bpwmnames):
                 print('clusterfile does not match basepwm file')
                 sys.exit()
             bpwm_cluster = bpwm_cluster[:,1]
-        elif ';' in ''.join(pwnnames):
+        elif ';' in ''.join(pwmnames):
             bpwm_clusters = -np.ones(len(bpwmnames)).astype(str)
             for p, pn in enumerate(pwmnames):
                bpwm_clusters[np.isin(bpwmnames, pn.split(';'))] = str(p)
@@ -52,7 +64,7 @@ if __name__ == '__main__':
         collect = 20
     
     log = False
-    if '--infocont' in sys.argv:
+    if args.infocont:
         outname += 'ic'
         log = True
     
@@ -60,7 +72,7 @@ if __name__ == '__main__':
         name = pwmnames[p]
         pwm = pwm_set[p]
         outadd = ''
-        if '--reverse_complement' in sys.argv:
+        if args.reverse_complement:
             pwm=reverse(pwm)
             outadd += 'rev'
         if bpwmnames is not None:
@@ -70,7 +82,7 @@ if __name__ == '__main__':
             for f in where[:collect]:
                 pwm.append(bpwm_set[f])
         
-        fig = plot_pwms(pwm, log = log, showaxes = True)
+        fig = plot_pwms(pwm, log = log, showaxes = True, revcomp_matrix = True)
         fig.savefig(outname+'.'+name+outadd+'.jpg', bbox_inches = 'tight', dpi = 300)
         print(outname+'.'+name+outadd+'.jpg')
         

@@ -118,6 +118,8 @@ if __name__ == '__main__':
                         help = 'Determines if reverse complement will be compared as well')
     parser.add_argument('--approximate_distance', action='store_false', 
                         help = 'Uses regular torch conv1d to compute distance, ignores overhanging parts of shorter motif. Generally underestimates correlation between two motifs')
+    parser.add_argument('--batchsize', type = int, default = 1024, help='Batchsize to compute the similarity matrix')
+    parser.add_argument('--device', type = str, default = 'cpu', help='Device to compute the similarity matrix on. (not yet implemented)')
     parser.add_argument('--approximate_cluster_on', default = None, type = int, 
                         help='Define number of random motifs on which clustering will be performed, while rest will be assiged to best matching centroid of these clusters. Should be used if memory is too small for large distance matrix')
     parser.add_argument('--min_overlap', type = int, default = 4)
@@ -173,8 +175,8 @@ if __name__ == '__main__':
         if not os.path.isfile(args.linkage):
             # Align and compute correlatoin between seqlets using torch conv1d.
             print(f'Computing distance matrix for {len(pwm_set)} motifs')
-            correlation, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, metric = args.distance_metric, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = args.approximate_distance, return_alignment = True)
-            
+            correlation, ofs, revcomp_matrix= torch_compute_similarity_motifs(pwm_set, pwm_set, metric = args.distance_metric, min_sim = args.min_overlap, infocont = args.infocont, reverse_complement = args.reverse_complement, exact = args.approximate_distance, return_alignment = True, device = args.device, batchsize = args.batchsize)
+            print(f'Distance matrix of shape {correlation.shape} computed')
             # Save computed statistics for later
             if args.save_stats and args.approximate_cluster_on is None:
                 np.savez_compressed(outname+'_stats.npz', pwmnames = pwmnames, correlation = correlation, offsets = ofs, pwms = pwm_set, revcomp_matrix = revcomp_matrix)

@@ -51,7 +51,7 @@ def _plot_attribution(att, ax, nts = list('ACGT'), labelbottom=False, bottom_axi
     if xticklabels is not None:
         ax.set_xticklabels(xticklabels)
 
-def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, unit=0.04, xticks = None, xticklabels = None):
+def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, unit=0.04, xticks = None, xticklabels = None, ylim = None):
     '''
     Plots attributions of two sequences and illustrates the variant effect sizes
     
@@ -115,8 +115,11 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
     
     maxa,maxb = np.array(np.sum(np.ma.masked_less(attA,0), axis = -1)), np.array(np.sum(np.ma.masked_less(attB,0), axis = -1))
     
-    attlim = [min(np.amin(np.append(mina,minb)),0),np.amax(np.append(maxa,maxb))]
-    
+    if ylim is None:
+        attlim = [min(np.amin(np.append(mina,minb)),0),np.amax(np.append(maxa,maxb))]
+    else:
+        attlim = ylim 
+    print('Ylim', attlim)
     ah = 25
     buff = 2
     gN = (3*(ah+buff)+3*(4+buff)*int(add_perbase))
@@ -243,7 +246,7 @@ def plot_pwms(pwm, log = False, showaxes = False, unit = 0.4, channels= list('AC
         nshape[0] = nshape[0] + offleft + offright # total length that is 
         #needed to fit all pwms into region when aligned to each other
 
-        fig = plt.figure(figsize = (len(pwm) * nshape[0]*unit,3*unit*nshape[1]), dpi = 50)
+        fig = plt.figure(figsize = (3*unit*nshape[1], len(pwm) * nshape[0]*unit), dpi = 50)
         for p, pw in enumerate(pwm):
             ax = fig.add_subplot(len(pwm), 1, p + 1)
             if revcomp_matrix[p] == 1:

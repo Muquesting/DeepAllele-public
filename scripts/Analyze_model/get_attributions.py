@@ -146,7 +146,7 @@ def get_deeplift_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', num_shuffles
         mean = np.mean(all_seqs_res, axis=2)
         all_seqs_res = all_seqs_res - mean[:, :, np.newaxis, :] 
 
-    np.save(f'{save_dir}{mh_or_sh}_deeplift_attribs', all_seqs_res) 
+    np.save(f'{save_dir}{mh_or_sh}_{attrib_type}_attribs', all_seqs_res) 
 
     
 def get_ism_res(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', device=0, batch_size=200):

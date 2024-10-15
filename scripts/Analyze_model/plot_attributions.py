@@ -1,9 +1,6 @@
 import numpy as np
 import sys, os
 import matplotlib.pyplot as plt
-import logomaker as lm
-import pandas as pd
-from Bio.Align import PairwiseAligner
 from scipy.stats import pearsonr
 
 from DeepAllele.plotlib import plot_attribution
@@ -12,7 +9,7 @@ from DeepAllele.plotlib import plot_attribution
 def check_attributions(att):
     pearson=pearsonr(att[...,0].flatten(), att[...,1].flatten())[0]
     if pearson < 0:
-        print(Warning('It seems like your attributions in allele A and B are anticorrelated, which indicates that you should use --ratioattributions'))
+        print(Warning(f'It seems like your attributions in allele A and B are anticorrelated {pearson}, which indicates that you should use --ratioattributions'))
     
 def det_xticks(start, end, steps):
     stsizes = np.concatenate([np.array([2.5,5,10])*10**(i-10) for i in range(40)])
@@ -77,7 +74,12 @@ if __name__ == '__main__':
     if '--dpi' in sys.argv:
         dpi = int(sys.argv[sys.argv.index('--dpi')+1])
     
-    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks)
+    ylim = None
+    if '--ylim' in sys.argv:
+        ylim = sys.argv[sys.argv.index('--ylim')+1].split(',')
+        ylim = [float(ylim[0]), float(ylim[1])]
+    
+    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks, ylim = ylim)
     fig.savefig(outname+'.'+fmt, dpi = dpi, bbox_inches = 'tight')
     print(outname+'.'+fmt)
 
