@@ -161,7 +161,7 @@ def load_h5(
                 print("not ATAC seq dataset")
                 chroms = []
                 for peak_name in peak_name_dataset:
-                    chrom = peak_name.split("-")[1].split("r")[1]
+                    chrom = peak_name.split("chr")[1].split("-")[0]
                     chroms.append(chrom)
                 chroms = np.array(chroms)
                 val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
