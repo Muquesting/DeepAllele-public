@@ -202,96 +202,12 @@ def load_h5(
     trainloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
     )
+    # never shuffle the validation data
     valloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=32
     )
 
     return trainloader, valloader, train_peak_name, val_peak_name
-
-
-# TODO: add the peak name to the data
-
-
-def load_data(
-    path,
-    split_ratio,
-    batch_size=32,
-    metacell=False,
-    shuffle=False,
-    batch_id=None,
-    color_feature=None,
-    null=False,
-    repeat=None,
-):
-    # TODO: add the function to load the data to predict metacell level
-    # TODO: Decouple the bulk data and single cell data, meta cell
-    f = h5py.File(path, "r")
-    Cast_sequence = f["Cast_sequence"][:]
-    B6_sequence = f["B6_sequence"][:]
-    # peak_name = f["peak_name"][:]
-
-    if batch_id is not None:
-        # for the bulk seq data the log is not calculated so we have to calculate it
-        ratio = f[batch_id + ".ratio"][:]
-        # Cast_counts = np.log(f[batch_id + ".CAST"][:])
-        # B6_counts = np.log(f[batch_id + ".B6"][:])
-        Cast_counts = np.log(f[batch_id + ".CAST"][:] + 1)
-        B6_counts = np.log(f[batch_id + ".B6"][:] + 1)
-    else:
-        ratio = f["ratio"][:]
-        Cast_counts = f["Cast_counts"][:]
-        B6_counts = f["B6_counts"][:]
-    if repeat is not None:
-        if repeat == "B6":
-            x_all = torch.from_numpy(np.stack([B6_sequence, B6_sequence], -1)).float()
-        elif repeat == "Cast":
-            x_all = torch.from_numpy(
-                np.stack([Cast_sequence, Cast_sequence], -1)
-            ).float()
-    else:
-        x_all = torch.from_numpy(np.stack([B6_sequence, Cast_sequence], -1)).float()
-
-    y_all = torch.from_numpy(np.stack([B6_counts, Cast_counts, ratio], -1)).float()
-
-    if null:
-        # shuffle the data y_all
-        # y_all = y_all[np.random.permutation(y_all.shape[0])]
-        print(y_all.shape)
-        # shuffle the data x_all dim = 2
-        indices = torch.argsort(torch.rand(*x_all.shape), dim=1)
-        x_all = torch.gather(x_all, dim=1, index=indices)
-        # x_all = x_all[:, np.random.permutation(x_all.shape[1]), :, :]
-        print(x_all.shape)
-    Sequence_dataset = TensorDataset(x_all, y_all)  # create your datset
-
-    n_sample = x_all.shape[0]
-    n_train_sample = int(n_sample * split_ratio)
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        Sequence_dataset,
-        [n_train_sample, n_sample - n_train_sample],
-        generator=torch.Generator().manual_seed(42),
-    )
-
-    trainloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
-    )
-    validloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
-    )
-
-    if color_feature is not None:
-        # TODO support the list of color_feature
-        feature = f[color_feature][:]
-        train_feature, val_feature = torch.utils.data.random_split(
-            feature,
-            [n_train_sample, n_sample - n_train_sample],
-            generator=torch.Generator().manual_seed(
-                42
-            ),  # keep same with the data split
-        )
-        return trainloader, validloader, train_feature, val_feature
-
-    return trainloader, validloader
 
 
 def load_h5_single(
@@ -377,7 +293,8 @@ def load_h5_single(
                 print("not ATAC seq dataset")
                 chroms = []
                 for peak_name in peak_name_dataset:
-                    chrom = peak_name.split("-")[1].split("r")[1]
+                    chrom = peak_name.split("chr")[1].split("-")[0]
+                    chroms.append(chrom)
                     chroms.append(chrom)
                 chroms = np.array(chroms)
 
@@ -464,51 +381,13 @@ def load_h5_single(
     trainloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
     )
+    # never shuffle the validation data
     valloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=32
     )
 
     return trainloader, valloader, train_peak_name, val_peak_name
 
-
-def load_single_data(
-    path,
-    split_ratio,
-    input_sequence_list=["Cast"],
-    batch_size=32,
-    shuffle=False,
-):
-    # TODO add comments to the function
-
-    f = h5py.File(path, "r")
-    for input_sequence in input_sequence_list:
-        sequence = f[input_sequence + "_sequence"][:]
-        counts = f[input_sequence + "_counts"][:]
-        if input_sequence == input_sequence_list[0]:
-            x_all = torch.from_numpy(sequence)
-            y_all = torch.from_numpy(counts)
-        else:
-            x_all = torch.cat((x_all, torch.from_numpy(sequence)), 1)
-            y_all = torch.cat((y_all, torch.from_numpy(counts)), 1)
-    # x_all = torch.from_numpy(sequence)
-    # y_all = torch.from_numpy(counts)
-    Sequence_dataset = TensorDataset(x_all, y_all)  # create your datset
-    n_sample = x_all.shape[0]
-    n_train_sample = int(n_sample * split_ratio)
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        Sequence_dataset,
-        [n_train_sample, n_sample - n_train_sample],
-        generator=torch.Generator().manual_seed(42),
-    )
-
-    trainloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
-    )
-    validloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
-    )
-
-    return trainloader, validloader
 
 
 def unfold_loader(loader):
