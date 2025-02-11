@@ -18,8 +18,8 @@ python reproduce_multi_head_models.py \
   --use_wandb \
   --wandb_api "$WANDB_API_KEY" \
   --project_id "$PROJECT_ID" \
-  --random_seed_start 0 \
-  --random_seed_end 5 \
+  --random_seed_start 1 \
+  --random_seed_end 6 \
   --device 0 \
   --conv_layers 4 \
   --conv_repeat 1 \
@@ -40,8 +40,8 @@ python reproduce_multi_head_models.py \
   --use_wandb \
   --wandb_api "$WANDB_API_KEY" \
   --project_id "$PROJECT_ID" \
-  --random_seed_start 0 \
-  --random_seed_end 5 \
+  --random_seed_start 1 \
+  --random_seed_end 6 \
   --device 0 \
   --conv_layers 4 \
   --conv_repeat 1 \

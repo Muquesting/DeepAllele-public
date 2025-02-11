@@ -97,9 +97,10 @@ def main(args):
     os.makedirs(hyper_output_path, exist_ok=True)
 
     if args.mode == "train":
-        # Create a batch-group folder first.
+        # For multi-head, use checkpoint structure: batch_{batch_id}/random_seed_{seed}
         batch_output_path = os.path.join(
-            hyper_output_path, f"batch_{args.batch_id}"
+            hyper_output_path,
+            f"batch_{args.batch_id}"
         )
         os.makedirs(batch_output_path, exist_ok=True)
         for seed in range(args.random_seed_start, args.random_seed_end):
@@ -149,6 +150,9 @@ def main(args):
             val_results = trainer.validate(best_model, dataloaders=valloader)
             print(f"Seed {seed} validation results:", val_results)
             
+            if args.use_wandb:
+                logger.experiment.finish()
+
             # prediction_output_dir = os.path.join(seed_output_path, "predictions")
             # validate_and_save_predictions(best_model, valloader, prediction_output_dir, args.device)
             # print(f"Validation for seed {seed} complete. Results saved in: {prediction_output_dir}")

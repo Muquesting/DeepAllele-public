@@ -87,49 +87,7 @@ def train_model(single_model, trainloader, valloader, checkpoint_dir, logger, gp
     return best_model, checkpoint_callback.best_model_path
 
 
-def validate_and_save_predictions(best_model, valloader, output_dir, gpu_index):
-    """
-    Run prediction on the validation set using trainer.predict and save predictions and labels.
-    Assumes that best_model.predict_step returns a dict with keys 'pred' and 'label'.
-    """
-    print(f"\nRunning validation and saving predictions...")
-    print(f"Output directory: {output_dir}")
-    trainer = pl.Trainer(
-        accelerator="gpu",
-        devices=[gpu_index],
-        max_epochs=1,
-        benchmark=False,
-        profiler="simple",
-        logger=False,
-    )
-    
-    # Use trainer.predict to collect outputs.
-    pred_batches = trainer.predict(best_model, dataloaders=valloader)
-    
-    predictions = []
-    labels = []
-    # Combine outputs from all batches.
-    for batch in pred_batches:
-        predictions.append(batch["pred"])
-        labels.append(batch["label"])
-    
-    # Convert tensors to numpy arrays and concatenate along the batch axis.
-    predictions = np.concatenate(
-        [pred.detach().cpu().numpy() if hasattr(pred, "detach") else np.array(pred) for pred in predictions],
-        axis=0
-    )
-    labels = np.concatenate(
-        [lab.detach().cpu().numpy() if hasattr(lab, "detach") else np.array(lab) for lab in labels],
-        axis=0
-    )
-    
-    os.makedirs(output_dir, exist_ok=True)
-    pred_path = os.path.join(output_dir, "predictions.npy")
-    label_path = os.path.join(output_dir, "labels.npy")
-    np.save(pred_path, predictions)
-    np.save(label_path, labels)
-    print(f"Predictions saved to: {pred_path}")
-    print(f"Labels saved to: {label_path}")
+
 
 
 def main(args):
@@ -161,6 +119,7 @@ def main(args):
     
     # Load data (the same for all seeds).
     print("\nInitializing data loading...")
+    
     trainloader, valloader = get_dataloaders(
         in_folder=args.in_folder,
         batch_id=args.batch_id,
@@ -170,6 +129,8 @@ def main(args):
         split_by_chrom=args.split_by_chrom,
         shuffle=(args.mode == "train"),
     )
+
+    print(type(args.split_by_chrom), type(((args.mode == "train"))))
     
     # Determine the input length from the first training batch.
     for seqs, _ in trainloader:
@@ -177,13 +138,16 @@ def main(args):
         print(f"Determined input sequence length: {input_length}")
         break
 
+    # For single-head, update checkpoint structure: batch/{batch_id}/{Genome_string}/random_seed
+    batch_output_path = os.path.join(
+        hyper_output_path,
+        f"batch_{args.batch_id}",
+        "_".join(args.genome)
+    )
+    os.makedirs(batch_output_path, exist_ok=True)
+
     if args.mode == "train":
         print(f"\nStarting training loop for {args.random_seed_end - args.random_seed_start} seeds")
-        # Create a batch-group folder first.
-        batch_output_path = os.path.join(
-            hyper_output_path, f"batch_{args.batch_id}_{'_'.join(args.genome)}"
-        )
-        os.makedirs(batch_output_path, exist_ok=True)
         # Loop over seeds.
         for seed in range(args.random_seed_start, args.random_seed_end):
             print(f"\n{'='*20} Seed {seed} {'='*20}")
@@ -243,39 +207,13 @@ def main(args):
             val_results = trainer.validate(best_model, dataloaders=valloader)
             print(f"Seed {seed} validation results:", val_results)
             
+            if args.use_wandb:
+                logger.experiment.finish()
             # # Save predictions and labels from the validation set.
             # prediction_output_dir = os.path.join(seed_output_path, "predictions")
             # validate_and_save_predictions(best_model, valloader, prediction_output_dir, args.device)
             # print(f"\nValidation for seed {seed} complete")
             # print(f"Results saved in: {prediction_output_dir}")
-            
-    elif args.mode == "validate":
-        print("\nRunning validation mode")
-        print(f"Loading checkpoint from: {args.checkpoint_path}")
-        # In validate mode, use a single provided checkpoint.
-        if not os.path.exists(args.checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint not found: {args.checkpoint_path}")
-        best_model = model.SingleHeadResidualCNN.load_from_checkpoint(args.checkpoint_path)
-        print(f"Loaded model from {args.checkpoint_path}")
-        
-        # Validate the model.
-        trainer = pl.Trainer(
-            accelerator="gpu",
-            devices=[args.device],
-            max_epochs=1,
-            benchmark=False,
-            profiler="simple",
-        )
-        val_results = trainer.validate(best_model, dataloaders=valloader)
-        print("Validation results:", val_results)
-        
-        # Save predictions and labels.
-        prediction_output_dir = os.path.join(hyper_output_path, "predictions")
-        validate_and_save_predictions(best_model, valloader, prediction_output_dir, args.device)
-        
-        print("\n" + "="*50)
-        print("Pipeline execution completed")
-        print("="*50)
     else:
         raise ValueError("Mode must be 'train' or 'validate'.")
 
@@ -329,6 +267,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    pl.seed_everything(args.random_seed_start)  # Default seeding (will be overwritten in each seed loop)
+    # pl.seed_everything(args.random_seed_start)  # Default seeding (will be overwritten in each seed loop) 
     
     main(args)
