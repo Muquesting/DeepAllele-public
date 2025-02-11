@@ -295,7 +295,6 @@ def load_h5_single(
                 for peak_name in peak_name_dataset:
                     chrom = peak_name.split("chr")[1].split("-")[0]
                     chroms.append(chrom)
-                    chroms.append(chrom)
                 chroms = np.array(chroms)
 
                 # print(len(chroms))
