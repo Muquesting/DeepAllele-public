@@ -339,7 +339,7 @@ def load_h5_single(
 
     for genome in Genome:
         sequence = f[genome + "_sequence"][:]
-        if batch_id is not None:
+        if batch_id is not None and len(batch_id) > 0:
             counts = np.stack(
                 [f[batch + "." + genome.upper()] for batch in batch_id], axis=-1
             )
