@@ -163,9 +163,10 @@ def main(args):
             if args.use_wandb:
                 print(f"Initializing Weights & Biases logging:")
                 print(f"Project ID: {args.project_id}")
-                print(f"Run name: model_{args.model_type}_seed_{seed}_cell_{args.batch_id}")
+                # Updated run name to include genome_str
+                print(f"Run name: model_{args.model_type}_seed_{seed}_cell_{args.batch_id}_{genome_str}")
                 os.environ["WANDB_API_KEY"] = args.wandb_api
-                run_name = f"model_{args.model_type}_seed_{seed}_cell_{args.batch_id}"
+                run_name = f"model_{args.model_type}_seed_{seed}_cell_{args.batch_id}_{genome_str}"
                 logger = WandbLogger(project=args.project_id, name=run_name, log_model="all")
             else:
                 logger = TensorBoardLogger(save_dir=seed_output_path)
