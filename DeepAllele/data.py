@@ -105,7 +105,7 @@ def load_h5(
     Cast_sequence = f["Cast_sequence"][:]
     B6_sequence = f["B6_sequence"][:]
 
-    if batch_id is not None:
+    if batch_id is not None and len(batch_id) > 0:
         if isinstance(batch_id, str):
             batch_id = [batch_id]
         # concate for multiple batch
@@ -237,7 +237,7 @@ def load_h5_single(
     Cast_sequence = f["Cast_sequence"][:]
     B6_sequence = f["B6_sequence"][:]
 
-    if batch_id is not None:
+    if batch_id is not None and len(batch_id) > 0:
         if isinstance(batch_id, str):
             batch_id = [batch_id]
         # concate for multiple batch
@@ -339,7 +339,7 @@ def load_h5_single(
 
     for genome in Genome:
         sequence = f[genome + "_sequence"][:]
-        if batch_id is not None:
+        if batch_id is not None and len(batch_id) > 0:
             counts = np.stack(
                 [f[batch + "." + genome.upper()] for batch in batch_id], axis=-1
             )
