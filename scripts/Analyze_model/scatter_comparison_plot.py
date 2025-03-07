@@ -132,7 +132,7 @@ if __name__ == '__main__':
         sizefile = sys.argv[sys.argv.index('--sizefile')+1]
         scol = int(sys.argv[sys.argv.index('--sizefile')+2]) # column the data file
         sqrt = sys.argv[sys.argv.index('--sizefile')+3] == 'True' # determine sizes should be scaled by square root
-        snames, header, sizes = read_matrix_file(sizefile)
+        snames, header, sizes = read_matrix_file(sizefile, header = 'auto')
         sizes = sizes[:,scol]
         sort = np.argsort(snames)[np.isin(np.sort(snames), names)] # sort to original data
         snames, sizes = snames[sort], sizes[sort]

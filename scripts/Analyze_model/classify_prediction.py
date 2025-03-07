@@ -33,6 +33,10 @@ if __name__ == '__main__':
     psort = np.argsort(predictions[:,0])[np.isin(np.sort(predictions[:,0]), measured[:,0])]
     predictions = predictions[psort]
 
+    if len(predictions) == 0: 
+        print('Seq IDs in both files do not match')
+        sys.exit()
+
     preds = np.absolute(predictions[:,pcolum].astype(float)) > cut_pred
     meas= np.absolute(measured[:,mcolum].astype(float)) > cut_meas
     print(int(np.sum(preds)), 'predicted >', cut_pred)

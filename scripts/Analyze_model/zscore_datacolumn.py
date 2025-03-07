@@ -11,7 +11,8 @@ if __name__ == '__main__':
     parser.add_argument('--compute_mean', action='store_true')
     parser.add_argument('--column', type = int, default = -1)
     parser.add_argument('--noheader', action='store_false')
-    
+    parser.add_argument('--prefix', type = str, default = 'seq_idx')
+
     args = parser.parse_args()
     
     f = np.genfromtxt(args.datafile, dtype = str)
@@ -33,8 +34,9 @@ if __name__ == '__main__':
     z = z/std
     f[:,args.column] = z
     f = f[:,[0,args.column]].astype('<U200')
-    if not 'seq_idx' in f[0,0]:
+    
+    if not args.prefix in f[0,0]:
         for i, fi in enumerate(f):
-            f[i,0] = 'seq_idx_'+fi[0]
+            f[i,0] = args.prefix+'_'+fi[0]
 
     np.savetxt(outname, f, fmt = '%s', header = ' '.join(header))
