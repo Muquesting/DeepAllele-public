@@ -37,9 +37,17 @@ if __name__ == '__main__':
             mlocs[m][1] = np.array(ml[1].split('-'), dtype = int)
         mlocs[:,[2,3]] = mlocs[:,[2,3]].astype(int)
         
+
+    xlims = [0, 1000]
+    if '--xlim' in sys.argv:
+        xlims = np.array(sys.argv[sys.argv.index('--xlim')+1].split(','), dtype = int)
+        seq = seq[xlims[0]:xlims[1]]
+        att = att[xlims[0]:xlims[1]]
+
     seqloci = np.where(seq[...,0]==1)[0]
-    xticks = det_xticks(seqloci[0], seqloci[-1], 4)
-    
+    xticks = det_xticks(xlims[0] + seqloci[0], seqloci[-1], 4)
+    xticklabels = xlims[0] + xticks
+
     # Modify the attribution values if not yet processed
     if '--centerattributions' in sys.argv:
         att -= (np.sum(att, axis = -2)/4)[...,None,:]
@@ -79,7 +87,15 @@ if __name__ == '__main__':
         ylim = sys.argv[sys.argv.index('--ylim')+1].split(',')
         ylim = [float(ylim[0]), float(ylim[1])]
     
-    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks, ylim = ylim)
+    unit = 0.04
+    if '--unit' in sys.argv:
+        unit = float(sys.argv[sys.argv.index('--unit')+1])
+
+    height_scale = 25
+    if '--unit' in sys.argv:
+         height_scale = int(sys.argv[sys.argv.index('--height_scale')+1])
+
+    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks, ylim = ylim, unit = unit, height_scale = height_scale)
     fig.savefig(outname+'.'+fmt, dpi = dpi, bbox_inches = 'tight')
     print(outname+'.'+fmt)
 

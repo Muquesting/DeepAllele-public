@@ -51,7 +51,7 @@ def _plot_attribution(att, ax, nts = list('ACGT'), labelbottom=False, bottom_axi
     if xticklabels is not None:
         ax.set_xticklabels(xticklabels)
 
-def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, unit=0.04, xticks = None, xticklabels = None, ylim = None):
+def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, unit=0.04, height_scale = 25, xticks = None, xticklabels = None, ylim = None):
     '''
     Plots attributions of two sequences and illustrates the variant effect sizes
     
@@ -120,7 +120,7 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
     else:
         attlim = ylim 
     print('Ylim', attlim)
-    ah = 25
+    ah = height_scale
     buff = 2
     gN = (3*(ah+buff)+3*(4+buff)*int(add_perbase))
     w, h = unit*maxlen, gN*unit
