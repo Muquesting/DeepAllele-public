@@ -171,7 +171,7 @@ ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
 ### Perform DeepLift on sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_deeplift_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --mh_or_sh ${modeltype}
+python ${intdir}get_attributions.py --which_fn get_deeplift_res --attrib_type grad --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --mh_or_sh ${modeltype}
 # Returns
 deeplift=${outdir}${modeltype}_deeplift_attribs.npy
 

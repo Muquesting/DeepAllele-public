@@ -214,7 +214,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_shuffles",default=10,type=int)
     parser.add_argument("--device",default=0,type=int)
     parser.add_argument("--baseline_type",default='uniform')
-    parser.add_argument("--attrib_type",default='deeplift')
+    parser.add_argument("--attrib_type",default='grad')
     parser.add_argument("--batch_size",default=200,type=int)
     parser.add_argument("--batch_id",default='')
 
