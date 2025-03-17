@@ -1,3 +1,4 @@
+import os
 from statistics import variance
 from Bio import SeqIO
 import pandas as pd
@@ -142,10 +143,7 @@ def load_h5(
         if split_by_chrom:
             print("splitting train and val by chrom")
 
-            if (
-                path
-                == "/data/tuxm/project/F1-ASCA/data/input/bulk_seq_ATAC_preprocessed_new_20230126.hdf5"
-            ):
+            if "atac" in os.path.basename(path).lower():
                 print("ATAC seq dataset")
 
                 chroms = get_peak_chroms(peak_name_dataset)
@@ -272,10 +270,7 @@ def load_h5_single(
         if split_by_chrom:
             print("splitting by chrom")
 
-            if (
-                path
-                == "/data/tuxm/project/F1-ASCA/data/input/bulk_seq_ATAC_preprocessed_new_20230126.hdf5"
-            ):
+            if "atac" in os.path.basename(path).lower():
                 print("ATAC seq dataset")
 
                 chroms = get_peak_chroms(peak_name_dataset)
