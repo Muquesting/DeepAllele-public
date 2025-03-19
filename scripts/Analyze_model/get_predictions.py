@@ -1,7 +1,6 @@
 import numpy as np 
 import pandas as pd
 import os
-import h5py
 import argparse
 import torch
 from torch.utils.data import TensorDataset, DataLoader
@@ -9,6 +8,16 @@ import pytorch_lightning as pl
 from DeepAllele import data, tools
 
 def save_seqs_obs_labels(save_dir, hdf5_path, batch_id='sum', split_by_chrom=True, train_or_val='val'): 
+    """
+    Save sequences, observations, and labels for a given hdf5 path as Numpy arrays. 
+
+    Parameters: 
+    - save_dir: String path to directory in which to save sequences, observations, and labels. 
+    - hdf5_path: String path to hdf5 file containing sequences, observations, and labels. 
+    - batch_id: String batch id to use to select data. 
+    - split_by_chrom: Boolean, whether or not to split data by chromosome. If False, split randomly. 
+    - train_or_val: String in {"train","val"}, whether to save train or validaiton sequences. 
+    """
     if batch_id=='':
         batch_id=None
     trainloader, valloader, train_feature, val_feature = data.load_h5(hdf5_path, 0.9, 32, batch_id=batch_id,split_by_chrom=split_by_chrom, shuffle=False)
@@ -22,7 +31,7 @@ def save_seqs_obs_labels(save_dir, hdf5_path, batch_id='sum', split_by_chrom=Tru
 
     seqs_all = []
     obs_all = []
-    for bid, (seqs, labels) in enumerate(valloader):
+    for bid, (seqs, labels) in enumerate(loader):
         seqs_all.append(seqs.cpu().numpy())
         obs_all.append(labels.cpu().numpy())
     seqs_all=np.concatenate(seqs_all)
@@ -34,11 +43,30 @@ def save_seqs_obs_labels(save_dir, hdf5_path, batch_id='sum', split_by_chrom=Tru
 
     
 def get_predictions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh',device=0,batch_size=32,num_workers=32):     
+    """
+    Save predictions as .txt for a given model checkpoint and path to sequences. 
+
+    Parameters: 
+    - save_dir: String path to directory in which to save attributions. 
+    - ckpt_path: String path to DeepAllele model checkpoint. 
+    - seqs_path: String path to sequences (saved as Numpy array). Array is of shape [n seqs, seq length, 4, 2]. The last dimension is 2 because the array contains sequences from 2 genomes. 
+    - mh_or_sh: DeepAllele model type: mh is "multi-head" (SeparateMultiHeadResidualCNN), sh is "single-head" (SingleHeadResidualCNN). 
+    - device: Integer of GPU to use. To use CPU, use device<0. 
+    - batch_size: Integer batch size for prediction. 
+    - num_workers: Integer number of workers for prediction. 
+
+    Saves: text file with predictions for each sequence. 
+    """
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
+
     model = tools.load_saved_model(ckpt_path, mh_or_sh)
-    trainer = pl.Trainer(accelerator='gpu' if device != 'cpu' else 'cpu', devices=[int(device)] if device != 'cpu' else 1,logger=False)
-        
+    trainer = pl.Trainer(
+    devices=[device] if device>=0 else None,  
+    accelerator="gpu" if device>=0  else "cpu", 
+    logger=False
+)
+       
     if mh_or_sh=='mh':
         placeholder_y = np.zeros((len(seqs_all),3))
         dataset = TensorDataset(torch.from_numpy(seqs_all), torch.from_numpy(placeholder_y)) # y is placeholder 
@@ -83,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument("--ckpt_path")
     parser.add_argument("--seqs_path")
     parser.add_argument("--mh_or_sh",default='mh')
-    parser.add_argument("--device",default=0)
+    parser.add_argument("--device",default=0,type=int)
     parser.add_argument("--batch_id",default='')
     parser.add_argument("--which_fn")
     parser.add_argument("--split_by_chrom",default=1,type=int)
