@@ -182,8 +182,6 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
         model.to('cpu')  
 
     var_info = pd.read_csv(save_dir + 'variant_info.csv',index_col=0)
-    var_info=var_info.iloc[:5]
-
     aligned_seqs = np.load(save_dir + 'aligned_seqs.npy')
     genome_labels = ['A','B']
 
