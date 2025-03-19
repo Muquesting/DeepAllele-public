@@ -212,6 +212,7 @@ def save_ism_attributions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh', device=
     - mh_or_sh: DeepAllele model type: mh is "multi-head" (SeparateMultiHeadResidualCNN), sh is "single-head" (SingleHeadResidualCNN). 
     - batch_size: Integer batch size for prediction. 
     - subtract_means: Boolean, whether to zero-center the attributions. 
+    - device: Integer of GPU to use. To use CPU, use device<0. 
 
     Saves: Numpy array of ISM attributions (of the same shape as the sequences found at seqs_path). 
     
