@@ -16,9 +16,9 @@ def det_xticks(start, end, steps):
     stsize = (end-start)/steps
     stsize = stsizes[np.argmin(np.absolute(stsizes-stsize))]
     xticks = np.arange(start, end +1)
-    xticks = xticks[xticks%stsize ==0]
-    
-    return xticks
+    xticklabels = xticks[xticks%stsize ==0]
+    xticks = np.where(xticks%stsize == 0)[0]
+    return xticks, xticklabels
 
 if __name__ == '__main__':
     att = np.load(sys.argv[1])
@@ -38,15 +38,34 @@ if __name__ == '__main__':
         mlocs[:,[2,3]] = mlocs[:,[2,3]].astype(int)
         
 
-    xlims = [0, 1000]
+    xlims = np.where(seq[...,0]==1)[0][[0,-1]]
     if '--xlim' in sys.argv:
         xlims = np.array(sys.argv[sys.argv.index('--xlim')+1].split(','), dtype = int)
         seq = seq[xlims[0]:xlims[1]]
         att = att[xlims[0]:xlims[1]]
 
-    seqloci = np.where(seq[...,0]==1)[0]
-    xticks = det_xticks(xlims[0] + seqloci[0], seqloci[-1], 4)
-    xticklabels = xlims[0] + xticks
+    xticks, xticklabels = det_xticks(xlims[0], xlims[-1], 4)
+
+    if '--set_xticks' in sys.argv:
+        xticks = sys.argv[sys.argv.index('--set_xticks')+1]
+        if ',' in xticks:
+            xticks = xticks.split(',')
+        else:
+            xticks = [xticks]
+        xticks = np.array(xticks, dtype = int) - xlims[0]
+        xticklabels = xticklabels[:len(xticks)]
+        xticks = xticks[:len(xticklabels)]
+
+    if '--set_xticklabels' in sys.argv:
+        xticklabels = sys.argv[sys.argv.index('--set_xticklabels')+1]
+        if ',' in xticklabels:
+            xticklabels = xticklabels.split(',')
+        else:
+            xticklabels = [xticklabels]
+        xticklabels = xticklabels[:len(xticks)]
+        xticks = xticks[:len(xticklabels)]
+
+    print(xticks, xticklabels)
 
     # Modify the attribution values if not yet processed
     if '--centerattributions' in sys.argv:
@@ -92,10 +111,10 @@ if __name__ == '__main__':
         unit = float(sys.argv[sys.argv.index('--unit')+1])
 
     height_scale = 25
-    if '--unit' in sys.argv:
+    if '--height_scale' in sys.argv:
          height_scale = int(sys.argv[sys.argv.index('--height_scale')+1])
 
-    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks, ylim = ylim, unit = unit, height_scale = height_scale)
+    fig = plot_attribution(seq, att, motifs = mlocs, seq_based = seq_based, add_perbase = add_perbase, xticks = xticks, xticklabels = xticklabels, ylim = ylim, unit = unit, height_scale = height_scale)
     fig.savefig(outname+'.'+fmt, dpi = dpi, bbox_inches = 'tight')
     print(outname+'.'+fmt)
 
