@@ -3,19 +3,23 @@ import pandas as pd
 import os
 import argparse
 from Bio import pairwise2
-from collections import defaultdict
-import sys
 import torch
 from DeepAllele import tools
 from get_predictions import get_predictions
 
 def first_non_dash_index(string):
+    """
+    Helper function for save_var_info. 
+    """
     for index, char in enumerate(string):
         if char != '-':
             return index
     return -1  # if all characters are '-'
 
 def last_non_dash_index(string):
+    """
+    Helper function for save_var_info. 
+    """
     last_index = -1
     for index, char in enumerate(string):
         if char != '-':
@@ -23,8 +27,10 @@ def last_non_dash_index(string):
     return last_index
 
 def remove_gaps_and_pad(seq_to_pad):
-    # for removing gaps from aligned seqs to pass through the model 
-    # takes (1,len,4), returns (1,len,4) 
+    """
+    Helper function for get_ism, used for removing gaps from aligned sequences to pass to the model. 
+    seqs_to_pad are of shape [1,seq_len,4], and the returned padded_seq is also of shape [1,seq_len,4]. 
+    """
     final_len = seq_to_pad.shape[1]
     mask = np.all(seq_to_pad[:, :, :] == 0, axis=2).reshape(-1)
     filtered_seq = seq_to_pad[:, ~mask, :]
@@ -33,7 +39,16 @@ def remove_gaps_and_pad(seq_to_pad):
     padded_seq = np.pad(filtered_seq, pad_width, mode='constant', constant_values=0)
     return padded_seq
 
-def save_var_info(save_dir, seqs_path):    
+def save_var_info(save_dir, seqs_path):
+    """
+    Given a path to sequences, save a DataFrame that gives containing variant information between the sequences. 
+    
+    Parameters: 
+    - save_dir: String path to directory in which to save variant information. 
+    - seqs_path: String path to sequences (saved as Numpy array). Array is of shape [n seqs, seq length, 4, 2]. The last dimension is 2 because the array contains sequences from 2 genomes. 
+    
+    Saves: DataFrame with the columns seq_idxs (corresponding to seqs_path), variant_idxs, A_sequence (sequence A at variant_idxs) and B_sequence (sequence B at variant_idxs). 
+    """    
     seqs_all = np.load(seqs_path)    
     seq_idxs = []
     non_matching_indices = []
@@ -88,6 +103,10 @@ def save_var_info(save_dir, seqs_path):
     var_info_df.to_csv(save_dir + 'variant_info.csv')
 
 def alignments_onehot(seq1, seq2):
+    """
+    Align two sequences using pariwise2. 
+    Each sequence should be of shape [seq length, 4]
+    """
     seq1 = tools.reversed_onehot(seq1)
     seq2 = tools.reversed_onehot(seq2)
     alignments = pairwise2.align.globalxs(seq1, seq2, -0.5, -0.1)[0]
@@ -95,7 +114,17 @@ def alignments_onehot(seq1, seq2):
     seq2 = tools.onehot_encoding(alignments.seqB, len(alignments.seqB))
     return alignments[0], alignments[1], seq1, seq2 
 
-def save_aligned_seqs(save_dir,seqs_path):        
+
+def save_aligned_seqs(save_dir,seqs_path):      
+    """
+    Save aligned sequences to use for variant ISM. 
+
+    Parameters: 
+    - save_dir: String path to directory in which to save variant information. 
+    - seqs_path: String path to sequences (saved as Numpy array). Array is of shape [n seqs, seq length, 4, 2]. The last dimension is 2 because the array contains sequences from 2 genomes. 
+    
+    Saves: aligned sequences as Numpy array. 
+    """  
     seqs_all = np.load(seqs_path)    
     seq_len = seqs_all.shape[1]
     genome_0_seqs = []
@@ -112,7 +141,20 @@ def save_aligned_seqs(save_dir,seqs_path):
     comb_aligned = np.concatenate((genome_0_seqs, genome_1_seqs), axis=-1)
     np.save(save_dir + 'aligned_seqs', comb_aligned)
 
-def get_ism(save_dir, seqs_path, ckpt_path, device):                     
+
+def get_ism(save_dir, seqs_path, ckpt_path, device): 
+    """
+    Perform ISM at each variant location. 
+
+    Parameters: 
+    - save_dir: String path to directory in which to save variant information. 
+    - seqs_path: String path to sequences (saved as Numpy array). Array is of shape [n seqs, seq length, 4, 2]. The last dimension is 2 because the array contains sequences from 2 genomes. 
+    - ckpt_path: String path to DeepAllele model checkpoint (SeparateMultiHeadResidualCNN)
+    - device: Integer of GPU to use. To use CPU, use device<0. 
+
+    Saves: DataFrame of variant ISM with the columns of variant_info.csv plus "ratio_A", "count_A", "ratio_B", and "count_B". 
+
+    """                    
     os.makedirs(save_dir,exist_ok=True)
     
     # first, get predictions for all ref seqs 
@@ -130,10 +172,15 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
         print('saving aligned seqs')
         save_aligned_seqs(save_dir,seqs_path)      
     
-    device = torch.device('cuda:'+str(device) if torch.cuda.is_available() else "cpu")
     model = tools.load_saved_model(ckpt_path, mh_or_sh='mh')
-    model.eval()
-    model.to(device)
+
+    if device>=0: 
+        print(f'Using GPU {device}')
+        model.to(device)
+    else: 
+        print('Using CPU')
+        model.to('cpu')  
+
     var_info = pd.read_csv(save_dir + 'variant_info.csv',index_col=0)
     aligned_seqs = np.load(save_dir + 'aligned_seqs.npy')
     genome_labels = ['A','B']
@@ -175,7 +222,10 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
             curr_to_insert[:,:,:,genome_to_insert_idx] = remove_gaps_and_pad(curr_to_insert[:,:,:,genome_to_insert_idx])
             curr_to_insert[:,:,:,other_genome_idx] = remove_gaps_and_pad(curr_to_insert[:,:,:,other_genome_idx])
             
-            curr_to_insert = torch.from_numpy(curr_to_insert).to(device, dtype=torch.float)  
+            curr_to_insert = torch.from_numpy(curr_to_insert)
+            if device>=0:
+                curr_to_insert=curr_to_insert.to(device,torch.float)
+
             out = model(curr_to_insert).cpu().detach().numpy()
             
             var_info.loc[i,f'ratio_{genome_label}'] = out[0,2] - ratio_ref_pred

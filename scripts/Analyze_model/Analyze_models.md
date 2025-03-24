@@ -153,7 +153,7 @@ python ${intdir}scatter_comparison_plot.py $vals $mainvar 'Measured allelic log2
 ### Perform ISM on test set sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_ism_res --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --mh_or_sh ${modeltype}
+python ${intdir}get_attributions.py --which_fn save_ism_attributions --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs} --mh_or_sh ${modeltype}
 
 # Returns
 ism=${outdir}ism_res.npy
@@ -171,7 +171,7 @@ ismatt=${outdir}/${modeltype}/${initialization}/ism_res.imp.npy
 ### Perform DeepLift on sequences
 
 ```
-python ${intdir}get_attributions.py --which_fn get_deeplift_res --attrib_type grad --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --mh_or_sh ${modeltype}
+python ${intdir}get_attributions.py --which_fn save_gradient_based_attributions --attrib_type deeplift --save_dir ${outdir} --ckpt_path ${ckpt_path} --seqs_path ${seqs_path} --mh_or_sh ${modeltype}
 # Returns
 deeplift=${outdir}${modeltype}_deeplift_attribs.npy
 
