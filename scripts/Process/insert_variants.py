@@ -1,4 +1,3 @@
-# Insert variants and generate fasta file
 import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -158,7 +157,7 @@ def modify_indels(indel_int_pass,record_dict_mod):
                 posnDict[peak_id] = new_posn
                 record_dict_mod[peak_id]=Seq.Seq(''.join(new_seq))
 
-        # for deletions where replacemetn is only 1 base, just deletes from sequence and position
+        # for deletions where replacement is only 1 base, just deletes from sequence and position
         # for deletions where replacement is > 1 base, first does insertion of additional bases and then deletion of the reference
         if indel_type == 'DEL':
             if indel_int_pass.loc[j,'ALT_LEN'] > 1:

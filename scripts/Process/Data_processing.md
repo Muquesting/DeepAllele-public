@@ -40,7 +40,7 @@ https://www.mousegenomes.org/snps-indels/
 
 In our case, MOD files, strain-specific genome, and corresponding vcf files were downloaded from the UNC collaborative cross project: The previous version of this site (http://csbio.unc.edu/CCstatus/index.py?run=Pseudo) is not available but an archive can be accessed here: https://web.archive.org/web/20221225061827/http://csbio.unc.edu/CCstatus/index.py?run=Pseudo
 
-For ease of reproducibility, we provide the specific versions used in the paper in the variants/ directory.
+For ease of reproducibility, we provide the specific versions used in the paper in the variants/ directory: https://www.dropbox.com/scl/fo/nlvkd7sz1iad8pzfqfew7/AJv5zQbWOTfEPxSQqM9zViI?rlkey=zn8vz9kxeyk8pl5zv2tfx1qmj&e=1&dl=0
 
 MOD files can also be generated with your custom vcf and genome build using pylapels, suspenders per above.
 
@@ -72,25 +72,40 @@ bowtie2 --very-sensitive-local --no-mixed --no-discordant --phred33 -I 10 -X 100
 
 ```
 
-We filter alignments to keep mapped reads and remove reads mapping to blacklist regions:
+We filter alignments to keep mapped reads and remove reads mapping to blacklist regions. For removing duplicates, we use Picard. This can be downloaded here: https://broadinstitute.github.io/picard/ 
+The blacklist used in this step can be downloaded from the ENCODE project: https://mitra.stanford.edu/kundaje/akundaje/release/blacklists/mm10-mouse/ 
 
 ```
+wget https://mitra.stanford.edu/kundaje/akundaje/release/blacklists/mm10-mouse/mm10.blacklist.bed.gz
+BLACKLIST=mm10.blacklist.bed.gz
+
 # convert to bam file
 samtools view -b $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.sam > $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.bam
-# 
+
+# Filter reads from the BAM file that have both paired end reads
+# and reads are properly aligned to its mate (-f 3).
+# Exclude reads where the read is unmapped or where the mate in umapped (-F 12)
+# Keep only reads with mapping quality > 2 (-q2)
 samtools view -bh -f 3 -F 12 -q 2 $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.bam > $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.mapped.bam
+
 # sort by coordinates
 samtools view -h $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.mapped.bam | sed '/chrM/d;/random/d;/chrUn/d' | samtools sort -@ 8 -O bam -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.filtered.sortedbyCoord.bam
-# Remove duplicates
+
+# Remove duplicates with picard
 java -Xms32000m -jar $SCRIPT_DIR/picard-2.8.0.jar MarkDuplicates I=$OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.filtered.sortedbyCoord.bam O=$OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.filtered.sortedbyCoord.nodup.bam M=$OUTPUT_DIR/$sample_ID/${sample_ID}.B6.dup.metrics.txt REMOVE_DUPLICATES=true ASSUME_SORTED=true
 
 # Remove reads in blacklisted regions
 bedtools intersect -abam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.filtered.sortedbyCoord.nodup.bam -b $BLACKLIST -wa -v > $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.final.bam
 
 # Index bam file
-cp $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.filtered.sortedbyCoord.nodup.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.final.bam
 samtools index $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.final.bam
 rm -f $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.bowtie2.sam
+
+```
+
+Perform the same steps for the CAST genome.
+
+```
 
 samtools view -b $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.sam > $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.bam
 samtools view -bh -f 3 -F 12 -q 2 $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.bam > $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.mapped.bam
@@ -99,7 +114,6 @@ java -Xms32000m -jar $SCRIPT_DIR/picard-2.8.0.jar MarkDuplicates I=$OUTPUT_DIR/$
 
 bedtools intersect -abam $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.filtered.sortedbyCoord.nodup.bam -b $BLACKLIST -wa -v > $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.final.bam
 
-cp $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.filtered.sortedbyCoord.nodup.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.final.bam
 samtools index $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.final.bam
 rm -f $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.sam
 
@@ -107,21 +121,27 @@ rm -f $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.bowtie2.sam
 
 ### Convert Cast mapping to corresponding B6 coordinates using lapels, suspenders
 
-It is recommended to use easy-install (http://packages.python.org/distribute/easy_install.html) for the installation.
+It is recommended to use easy-install or pip (http://packages.python.org/distribute/easy_install.html) for the installation. 
+See https://pypi.org/project/lapels/, https://pypi.org/project/suspenders/
+
 ```
 easy_install lapels
 # or
 pip install lapels
 
 easy_install suspenders
+#or 
+pip install suspenders
 ```
 
 ```
-#
+# Run pylapels on B6 alignments across 8 threads (without new headers and allowing forced overwrites), which uses the provided MOD file to convert to a common set of B6 coordinates. 
 pylapels -n -f -p 8 -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.lapels.medpar.bam $MOD_B6 $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.final.bam
-#
+
+# Run pylapels on CAST alignments across 8 threads (without new headers and allowing forced overwrites), which uses the provided MOD file to convert to a common set of B6 coordinates.
 pylapels -n -f -p 8 -o $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.lapels.medpar.bam $MOD_CAST $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.final.bam
-# 
+
+# Uses pysuspenders to assign each read to an allele of origin
 pysuspenders $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.lapels.medpar.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.lapels.medpar.bam
 
 ```
@@ -133,10 +153,16 @@ Split reads into each of these groups.
 Also create files that have strain specific + random 1/2 of non-specific
 
 ```  
+# Get B6 specific reads from suspenders-processed alignments
 samtools view -b -d po:1 -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po1.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.bam; samtools sort -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po1.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po1.bam
+
+# Get CAST specific reads from suspenders-processed alignments
 samtools view -b -d po:2 -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po2.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.bam; samtools sort -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po2.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po2.bam
+
+# Get non-specific reads from suspenders-processed alignments
 samtools view -b -d po:3 -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.bam
 
+# Randomly split non-specific reads into 2 files
 samtools view -H $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.bam > $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.sam
 cp $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.sam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.2.sam
 
@@ -144,7 +170,10 @@ samtools view $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.bam | a
 samtools view -h -b -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.sam; samtools sort -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.bam
 samtools view -h -b -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.2.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.2.sam; samtools sort -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.2.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.2.bam
 
+# Merge B6 specific reads with 1/2 of non-specific reads
 samtools merge -f -o $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.po3.merged.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po1.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.1.sorted.bam
+
+# Merge CAST specific reads with 1/2 of non-specific reads
 samtools merge -f -o $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.po3.merged.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po2.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po3.2.sorted.bam
 
 #index merged bams
@@ -155,7 +184,6 @@ samtools index $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.po3.merged.bam
 mv $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po1.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.only.bam; samtools index $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.only.bam
 # CAST only counts
 mv $OUTPUT_DIR/$sample_ID/${sample_ID}.B6.CAST.suspenders.po2.sorted.bam $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.only.bam; samtools index $OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.only.bam
-
 
 ```
 
@@ -182,6 +210,8 @@ For the F1 ChIP data, we directly used data available from the source publicatio
 ### Create final counts for bulk ATAC using featureCounts
 
 (all in B6mm10 coordinates now): the B6 counts consist of all B6-specific reads + random ½ of the non specific reads and the Cast counts consist of all Cast-specific reads + other ½ of the non specific reads. Everything is converted to B6 coordinates now so there is no need to switch back and forth between different references and one can use existing annotations. We use featureCounts to get the counts.
+The saf was provided in processing_files or can be downloaded https://www.dropbox.com/scl/fo/uvysvn3jsastgo5s1xjn2/AFoLX69qDNrxZagIuvxuCdE?rlkey=sj6tjyoc4n18vwyx0xtyuueej&dl=0
+The SAF file is a specific format for featureCounts. For more details see here https://subread.sourceforge.net/featureCounts.html
 
 ```
 CASTBAM=$OUTPUT_DIR/$sample_ID/${sample_ID}.CAST.po3.merged.bam
@@ -194,125 +224,10 @@ featureCounts -p -B -F SAF -T 8 -a saf/treg_pks.saf -o CAST_counts.bed $CASTBAM
 
 ## Extended peaks from existing bed files
 
-To extend peaks to different sizes for modeling, we use the following R code:
-
+To extend peaks to different sizes for modeling, we use the following R code (extendBed.R)
 ```
-####### annotate ocrs associated with different genes ######
-library(EnsDb.Mmusculus.v79)
-library(BSgenome.Mmusculus.UCSC.mm10)
-library(GenomicRanges)
-library(dplyr)
-library(tidyr)
-
-extend_us_ds_bed <- function(gene.ranges,dist_us=20000,dist_ds=20000){
-  gene_vec_coords <- gene.ranges %>% as.data.frame()
-  gene_vec_adjust_tss <- data.frame('chr'=gene_vec_coords$seqnames,
-                                    'start'=gene_vec_coords$start-dist_us,'end'=gene_vec_coords$end+dist_ds)
-
-  gene_vec_gr <- makeGRangesFromDataFrame(gene_vec_adjust_tss)
-
-  return(gene_vec_gr)
-}
-
-
-
-
-get_TSS_posns <- function(ref_flat,dist_us=150,dist_ds=150){
-  minus_strand_tx <- ref_flat %>% dplyr::filter(strand=='-') %>% data.frame()
-  pos_strand_tx <- ref_flat %>% dplyr::filter(strand=='+') %>% data.frame()
-
-  minus_tss <- minus_strand_tx[,c('chrom','txEnd','txEnd')] %>% data.frame()
-  pos_tss <- pos_strand_tx[,c('chrom','txStart','txStart')] %>% data.frame()
-
-  colnames(minus_tss) <- c('chr','start','end')
-  colnames(pos_tss) <- c('chr','start','end')
-
-  all_tss <- rbind(pos_tss, minus_tss) %>% data.frame()
-
-  all_tss <- makeGRangesFromDataFrame(all_tss)
-  all_tss <- extend_us_ds(all_tss,dist_us,dist_ds)
-
-  all_tss <- as.data.frame(all_tss)
-  all_tss <- all_tss[,c(1,2,3)]
-  colnames(all_tss) <- c('chr','start','end')
-
-  all_tss <- makeGRangesFromDataFrame(all_tss)
-
-  return(all_tss)
-}
-
-get_gene_tss <- function(genes,ref_flat,dist_us=200,dist_ds=50){
-  ref_flat_f <- ref_flat %>% dplyr::filter(genename %in% genes) %>% data.frame()
-  ref_flat_f_tss <-get_TSS_posns(ref_flat_f, dist_us,dist_ds)
-  return(ref_flat_f_tss)
-}
-
-
-getDataFile <- function(filename){
-  obj_n <- load(filename)
-  print(obj_n)
-  res <- get(obj_n)
-  rm(obj_n)
-  return(res)
-}
-
-
-######## read in bed file ######
-cast_bed <- read.table('peaks_info_updated_2021_12_16.txt',sep='\t',header=F)
-
-cast_bedf <- cast_bed[,c(1,2,3)]
-colnames(cast_bedf) <- c('chr','start','end')
-cast_bedf <- makeGRangesFromDataFrame(cast_bedf)
-
-####### extend #######
-library(stringr)
-
-# extend 125 on either side #  500 2x
-cast_2x <- extend_us_ds_bed(cast_bedf,125,125)
-cast_2x <- as.data.frame(cast_2x)
-cast_2x <- cast_2x[,c(1,2,3),drop=F]
-cast_2x$peakid <- cast_bed[,4]
-write.table(cast_2x, file='peaks_2x_500.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-cast_2x_nochr <- cast_2x
-cast_2x_nochr[,1] <- sapply(cast_2x_nochr[,1],function(x){str_replace_all(x,'chr','')})
-write.table(cast_2x_nochr, file='peaks_2x_500_nochr.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-# extend 375 on either side # 1000 4x
-cast_4x <- extend_us_ds_bed(cast_bedf,375,375)
-cast_4x <- as.data.frame(cast_4x)
-cast_4x <- cast_4x[,c(1,2,3),drop=F]
-cast_4x$peakid <- cast_bed[,4]
-write.table(cast_4x, file='peaks_4x_1000.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-cast_4x_nochr <- cast_4x
-cast_4x_nochr[,1] <- sapply(cast_4x_nochr[,1],function(x){str_replace_all(x,'chr','')})
-write.table(cast_4x_nochr, file='peaks_4x_1000_nochr.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-# extend 875 on either side # 2000 8x
-cast_8x <- extend_us_ds_bed(cast_bedf,875,875)
-cast_8x <- as.data.frame(cast_8x)
-cast_8x <- cast_8x[,c(1,2,3),drop=F]
-cast_8x$peakid <- cast_bed[,4]
-write.table(cast_8x, file='peaks_8x_2000.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-
-cast_8x_nochr <- cast_8x
-cast_8x_nochr[,1] <- sapply(cast_8x_nochr[,1],function(x){str_replace_all(x,'chr','')})
-write.table(cast_8x_nochr, file='peaks_8x_2000_nochr.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-
-# extend 1875 on either side # 4000 16x
-cast_16x <- extend_us_ds_bed(cast_bedf,1875,1875)
-cast_16x <- as.data.frame(cast_16x)
-cast_16x <- cast_16x[,c(1,2,3),drop=F]
-cast_16x$peakid <- cast_bed[,4]
-write.table(cast_16x, file='peaks_16x_4000.bed',sep='\t',quote=F,col.names = F,row.names = F)
-
-
-cast_16x_nochr <- cast_16x
-cast_16x_nochr[,1] <- sapply(cast_16x_nochr[,1],function(x){str_replace_all(x,'chr','')})
-write.table(cast_16x_nochr, file='peaks_16x_4000_nochr.bed',sep='\t',quote=F,col.names = F,row.names = F)
+#Run as 
+Rscript extendBed.R [bedfile] [extension_size] [outfile]
 
 ```
 
@@ -332,12 +247,18 @@ Use package to shift bed files of each peak from B6 to CAST coordinates (MMARGE.
 We use the following functions from MMARGE (As detailed in the MMARGE documentation:https://github.com/vlink/marge/blob/master/MMARGE_documentation.pdf)
 
 ```
-MARGE.pl prepare_files
-MARGE.pl shift_to_strain
-MARGE.pl create_genomes
+# prepares files with vcf's
+MMARGE.pl prepare_files -ind cast -files vcf_snps.vcf,vcf_indels.vcf -core 12 -genome genome_name
+
+# create genome fasta
+MMARGE.pl create_genomes -genome genome_name -ind cast
+
+# shifts B6 files to CAST coordinates (to enable extraction of region FASTAs directly from CAST genome fasta)
+MMARGE.pl shift_to_strain -dir directory -files peaks.bed -ind cast −bed
 ```
 
 Once these genomes have been generated and beds shifted to appropriate coordinates, can extract fastas with bedtools:
+here, bed is the version shifted to cast coordinates above and genome is the cast genome fasta generated above
 
 ```
 bedtools getfasta -name -fi mmarge_cast_genome_combined.fa -bed ${bed} -fo ${bed}.fa
@@ -346,9 +267,13 @@ bedtools getfasta -name -fi mmarge_cast_genome_combined.fa -bed ${bed} -fo ${bed
 #### Manual variant insertion
 
 Alternatively, can insert variants individually from a vcf file as follows in insert_variants.py
+This script inserts the variants into the FASTAs from the BED file. The reason this is necessary is because the variants in the vcf and the peaks in the bed are in the same coordinates so this uses those add the corresponding variants into just the regions of interest. It does not create the full genome.
+
+On the other hand, MMARGE per above does create a full genome and then we can use MMARGE to get shifted bed coordinates that can be used to extract the strain-specific region FASTAs. 
 
 ```
-python insert_variants.py
+python insert_variants.py -f [fasta_file] -s [snp_file] -d [indel_file] -o [output_fasta_path] [optional --filter_pass]
+
 ```
 
 
@@ -360,40 +285,41 @@ The following are some specific details of how to process data for single-cell A
 
 We use bowtie2 to map reads to both genomes (showing for scATAC data here).
 
-Note, this code was used in: 
-
-0_f1_mapping/f1_pipeline_scatac/4a_conda_bowtie_index_build.sh
-0_f1_mapping/f1_pipeline_scatac/5a_conda_bowtie_map.sh
-0_f1_mapping/f1_pipeline_scatac/6a_sam_merge_pre_pylapel.sh
-
 ```
-    bowtie2-build --threads 8 ${ref} ${refout}
-    bowtie2 --threads 16 -x ${btref} -1 ${fastq1} -2 ${fastq2} -S ${samout}
+ref = reference .fa (genome fasta) file
+refout = name for bowtie index built from genome reference
+fastq1 = R1 and fastq2 = R2 (R3 in 10x scATAC) to align
+samout = name of samfile output
 
-    samtools view -b ${samf1} > ${samf1}.bam
-    samtools sort -@ 8 ${samf1}.bam -o ${samf1}.sort.bam
-    samtools index ${samf1}.sort.bam
+bowtie2-build --threads 8 ${ref} ${refout}
+bowtie2 --threads 16 -x ${refout} -1 ${fastq1} -2 ${fastq2} -S ${samout}
 
-    echo "samtools 2"
-    samtools view -b ${samf2} > ${samf2}.bam
-    samtools sort -@ 8 ${samf2}.bam -o ${samf2}.sort.bam
-    samtools index ${samf2}.sort.bam
+# here showing processing for sam files aligned across 2 different lanes (samf1 = L1, samf2 = L2
+# both corresponding to samout from previous)
+samtools view -b ${samf1} > ${samf1}.bam
+samtools sort -@ 8 ${samf1}.bam -o ${samf1}.sort.bam
+samtools index ${samf1}.sort.bam
 
-    echo "samtools merge"
-    samtools merge -@ 8 ${samf1}.${samf2}.merge.bam ${samf1}.sort.bam ${samf2}.sort.bam
+echo "samtools 2"
+samtools view -b ${samf2} > ${samf2}.bam
+samtools sort -@ 8 ${samf2}.bam -o ${samf2}.sort.bam
+samtools index ${samf2}.sort.bam
 
-    rm ${samf1}.bam
-    rm ${samf2}.bam
+# merging across lanes
+echo "samtools merge"
+samtools merge -@ 8 ${samf1}.${samf2}.merge.bam ${samf1}.sort.bam ${samf2}.sort.bam
 
-    samtools index ${samf1}.${samf2}.merge.bam
+rm ${samf1}.bam
+rm ${samf2}.bam
+
+# index files
+samtools index ${samf1}.${samf2}.merge.bam
+samtools index ${samf1}.${samf2}.merge.bam
 
 ```
 
 
 ### Convert Cast mapping to corresponding B6 coordinates usign lapel, suspenders
-
-0_f1_mapping/f1_pipeline_scatac/7a_run_pylapel_medpar.sh
-0_f1_mapping/f1_pipeline_scatac/8a_run_suspenders_sort.sh
 
 ```
 pylapels -n -p 12 -o $outdir/${samf1}.${samf2}.merge.lapels.medpar.bam ${mod} ${samf1}.${samf2}.merge.bam
@@ -408,22 +334,22 @@ pysuspenders ${outdir}/${outbam}.bam ${indir}/${b6bam}.sort.bam ${indir}/${castb
 ```
 
 ### Determine allele of origin for each read
-0_f1_mapping/f1_pipeline_scatac/9a_split_bam_poi.sh
 
 Three possible outcomes: B6-specific, Cast specific,or equally likely)
 
 ```  
+# B6 specific
 samtools view -b -d po:1 -o ${bamdir}/${bam}_po1.bam ${bamdir}/${bam}
+# Cast specific
 samtools view -b -d po:2 -o ${bamdir}/${bam}_po2.bam ${bamdir}/${bam}
+# non-specific
 samtools view -b -d po:3 -o ${bamdir}/${bam}_po3.bam ${bamdir}/${bam}
 
 ```
 
 ### Use sinto to convert aligned bam into fragments file for downstream processing
-
 This step is for single cell data only. Sinto can be found here (https://github.com/timoast/sinto?tab=readme-ov-file)
-
-0_f1_mapping/f1_pipeline_scatac/10a_sinto_create_fragments_short.sh
+This creates a special format called a fragments file used in scATAC data analysis. This provides the regex of where sinto should find the barcode in the fasta. https://timoast.github.io/sinto/basic_usage.html#create-scatac-seq-fragments-file 
 
 ```
 samtools view -H ${bamdir}/${bam} | sed -e 's/SN:\([0-9XY]\)/SN:chr\1/' -e 's/SN:MT/SN:chrM/' | samtools reheader - ${bamdir}/${bam} > ${bamdir}/${bam}_chr.bam
@@ -433,6 +359,7 @@ samtools index ${bamdir}/${bam}_chr.sorted.bam
 
 cd ${outdir}
 
+# create scATAC fragments file, providing pattern of barcode to sinto
 sinto fragments -b ${bamdir}/${bam}_chr.sorted.bam -p 8 -f ${bam}.fragments.bed --barcode_regex "[^:]*"
 
 # sort, compress, and index
@@ -447,11 +374,10 @@ rm ${bam}.fragments.bed
 
 This step is optional, depending on whether one wants to consider reads that cannot be mapped to either one of the genomes. 
 
-0_f1_mapping/f1_pipeline_scatac/11a_split_fragments.py
-using 0_f1_mapping/f1_pipeline_scatac/11b_split_fragment_shell.sh
-
 ```
-python split_fragments.py ${bam}.fragments.sort.bed.gz
+python split_fragments.py -F ${bam}.fragments.sort.bed.gz
+
+python split_fragments.py -F ${fragfile_pre}.bed.gz
 
 # sort, compress, and index
 sort -k1,1 -k2,2n ${fragfile_pre}.split1.bed > ${fragfile_pre}.split1.sort.bed
@@ -466,8 +392,6 @@ tabix -p bed ${fragfile_pre}.split2.sort.bed.gz
 ```
 
 Combine Fragments across files
-0_f1_mapping/f1_pipeline_scatac/12a_combine_fragments.py
-0_f1_mapping/f1_pipeline_scatac/12b_combine_fragments_shell.sh
 
 ```
 python combine_fragments.py -A ${fragfile1} -B ${fragfile2} -O ${outpath_pre}.bed
@@ -480,45 +404,8 @@ tabix -p bed ${outpath_pre}.sort.bed.gz
 
 ### For scATAC, count matrices can be generated using the Signac (https://stuartlab.org/signac/) package:
 
-````
-library(Signac)
-library(Seurat)
-library(GenomeInfoDb)
-library(dplyr)
-library(SummarizedExperiment)
-library(biovizBase)
-library(Matrix)
-library(EnsDb.Mmusculus.v79)
-library(BSgenome.Mmusculus.UCSC.mm10)
-library(motifmatchr)
+```
+#Run as Rscript 
+generate_count_matrix.R [bed_file_path] [fragments_file_path] [out_file]
 
-set.seed(44)
-
-
-cust_peaks <- read.table(cust_peaks_path,sep='\t')
-# Read in mod Immgen Peaks
-cust_peaks_ranges <- getPeaks(cust_peaks_path, sort_peaks = T)
-chrom_to_keep1 <- rep('chr',21)
-chrom_to_keep2 <- c(seq(1:19),'X','Y')
-chrom_to_keep <- paste(chrom_to_keep1,chrom_to_keep2,sep = '')
-cust_peaks_ranges <- cust_peaks_ranges[cust_peaks_ranges@seqnames%in%chrom_to_keep,]
-
-fragments_path <- fragpath
-
-fragments <- CreateFragmentObject(
-  path = fragments_path,
-  validate.fragments = FALSE
-)
-
-ct_mtx <- FeatureMatrix(
-  fragments,
-  cust_peaks_ranges,
-  cells = NULL,
-  process_n = 10000,
-  sep = c("-", "-"),
-  verbose = TRUE
-)
-
-save(ct_mtx, file=paste0(save_path_pre,'ct_mtx_signac.rds'))
-
-````
+```
