@@ -45,7 +45,7 @@ pip install -e .
 
 ## Download trained model checkpoints and data
 
-We provide trained model checkpoints and processed data for reproducibility. All data is available through figshare.([figshare data link](https://doi.org/10.6084/m9.figshare.28694384.v2))
+We provide trained model checkpoints and processed data for reproducibility. All data is available through figshare.([figshare data link](https://doi.org/10.6084/m9.figshare.28694384))
 
 The download includes:
 - Raw data (genome files, reference sequences, etc.)
