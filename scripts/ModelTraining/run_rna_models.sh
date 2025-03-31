@@ -1,12 +1,17 @@
 #!/bin/bash
 
-# Common parameters
-OUT_ROOT="./output/RNA-seq"
-WANDB_API_KEY="62cb39b9e832e674d05386ec0a742e4855bfa1d0"
-PROJECT_ID="DeepAllele-F1-RNA"
+# RNA-seq model training script for DeepAllele
+# This script trains various models on RNA-seq data
 
-# RNA-seq settings
-RNA_DATA="/homes/gws/tuxm/Project/F1-mouse-RNA/explore/unified-dataloader/RNA-seq-preprocessed.hdf5"
+# Common parameters - adjust as needed
+OUT_ROOT="${OUT_ROOT:-./output/RNA-seq}"
+PROJECT_ID="${PROJECT_ID:-DeepAllele-RNA}"
+
+# Required: set your own Weights & Biases API key if using W&B
+WANDB_API_KEY="${WANDB_API_KEY:-YOUR_WANDB_API_KEY}"
+
+# RNA-seq data location
+RNA_DATA="${RNA_DATA:-./data/RNA-seq-preprocessed.hdf5}"
 RNA_BATCHES=("MF_PC_IL4" "B_Fo_Sp_IL4")
 
 # Function to run RNA-seq model
@@ -16,6 +21,11 @@ run_rna_model() {
     local DEVICE=$3
     local OUT_DIR="${OUT_ROOT}/${MODEL_TYPE}/${BATCH_ID}"
 
+    echo "Training ${MODEL_TYPE} model for ${BATCH_ID} on device ${DEVICE}"
+    
+    # Create output directory
+    mkdir -p "$OUT_DIR"
+    
     python unified_models.py \
         --mode train \
         --assay_type "RNA" \
@@ -41,9 +51,22 @@ run_rna_model() {
         --learning_rate 1e-4
 }
 
+# Display configuration
+echo "RNA-seq Model Training"
+echo "====================="
+echo "Output directory: ${OUT_ROOT}"
+echo "Data file: ${RNA_DATA}"
+echo "Batches to process: ${RNA_BATCHES[*]}"
+echo
+
 # Run models for each batch
 for batch in "${RNA_BATCHES[@]}"; do
-    run_rna_model "single" "$batch" 1
-    run_rna_model "multi" "$batch" 1
-    run_rna_model "multi_ComputedRatio" "$batch" 1
+    echo "Processing batch: $batch"
+    run_rna_model "single" "$batch" 0
+    run_rna_model "multi" "$batch" 0
+    run_rna_model "multi_ComputedRatio" "$batch" 0
+    echo "Completed models for batch: $batch"
+    echo
 done
+
+echo "All RNA-seq models completed"

@@ -1,12 +1,19 @@
 #!/bin/bash
 
-# Default paths for F1-mouse-RNA project
-VCF_FILE="/homes/gws/tuxm/Project/F1-mouse-RNA/data/CAST_EiJ.mgp.v5.indels.dbSNP142.normed.vcf.gz"
-GENE_META="/homes/gws/tuxm/Project/F1-mouse-RNA/data/gene_meta_new_TSS.csv"
-GENOME_FILE="/homes/gws/tuxm/Project/Decipher-multi-modality/data/genome/mm10.fa"
-CAST_EXPR="/homes/gws/tuxm/Project/F1-mouse-RNA/data/GeneExpression_Normalized_Lg2_Qntlnorm_CAST.tsv"
-B6_EXPR="/homes/gws/tuxm/Project/F1-mouse-RNA/data/GeneExpression_Normalized_Lg2_Qntlnorm_B6.tsv"
-OUTPUT_DIR="/homes/gws/tuxm/Project/DeepAllele-public/explore/preprocess-script/output"
+# RNA-seq preprocessing script for DeepAllele
+# This script processes RNA-seq data to prepare for model training
+
+# Configuration - adjust these paths as needed
+DATA_DIR="${DATA_DIR:-/path/to/data}"
+OUTPUT_DIR="${OUTPUT_DIR:-/path/to/output}"
+
+# Default paths - override with environment variables if needed
+VCF_FILE="${VCF_FILE:-${DATA_DIR}/CAST_EiJ.mgp.v5.indels.dbSNP142.normed.vcf.gz}"
+GENE_META="${GENE_META:-${DATA_DIR}/gene_meta_new_TSS.csv}"
+GENOME_FILE="${GENOME_FILE:-${DATA_DIR}/genome/mm10.fa}"
+CAST_EXPR="${CAST_EXPR:-${DATA_DIR}/GeneExpression_Normalized_Lg2_Qntlnorm_CAST.tsv}"
+B6_EXPR="${B6_EXPR:-${DATA_DIR}/GeneExpression_Normalized_Lg2_Qntlnorm_B6.tsv}"
+OUTPUT_DIR="${OUTPUT_DIR:-./output}"
 
 # Default window size
 WINDOW_SIZE=5000
@@ -22,8 +29,13 @@ mkdir -p "$OUTPUT_DIR"
 # Output file name based on window size
 OUTPUT_FILE="${OUTPUT_DIR}/RNA-seq-preprocessed-w${WINDOW_SIZE}.hdf5"
 
-echo "Running preprocessing with window size: ${WINDOW_SIZE}"
+echo "RNA-seq Preprocessing"
+echo "===================="
+echo "Window size: ${WINDOW_SIZE}"
 echo "Output file: ${OUTPUT_FILE}"
+echo "VCF file: ${VCF_FILE}"
+echo "Gene metadata: ${GENE_META}"
+echo
 
 # Run the preprocessing script
 python rna_preprocess.py \

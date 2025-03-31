@@ -1,13 +1,19 @@
 #!/bin/bash
 
-# Common parameters
-OUT_ROOT="./output/ChIP-seq"
-WANDB_API_KEY="62cb39b9e832e674d05386ec0a742e4855bfa1d0"
-PROJECT_ID="DeepAllele-F1-CHIP"
+# ChIP-seq model training script for DeepAllele
+# This script trains various models on ChIP-seq data
+
+# Common parameters - adjust as needed
+OUT_ROOT="${OUT_ROOT:-./output/ChIP-seq}"
+PROJECT_ID="${PROJECT_ID:-DeepAllele-CHIP}"
+
+# Required: set your own Weights & Biases API key if using W&B
+WANDB_API_KEY="${WANDB_API_KEY:-YOUR_WANDB_API_KEY}"
 
 # ChIP-seq data paths
-SPRET_DATA="/data/tuxm/project/F1-ASCA/data/input/Chip-seq/processed_data/sequence_datasets_chip_SPRET_B6_20230126.hdf5"
-PWK_DATA="/data/tuxm/project/F1-ASCA/data/input/Chip-seq/processed_data/sequence_datasets_chip_PWK_B6_20230126.hdf5"
+DATA_DIR="${DATA_DIR:-./data}"
+SPRET_DATA="${SPRET_DATA:-${DATA_DIR}/sequence_datasets_chip_SPRET_B6.hdf5}"
+PWK_DATA="${PWK_DATA:-${DATA_DIR}/sequence_datasets_chip_PWK_B6.hdf5}"
 
 # Function to run ChIP-seq model
 run_chip_model() {
@@ -17,6 +23,11 @@ run_chip_model() {
     local DEVICE=$4
     local OUT_DIR="${OUT_ROOT}/${MODEL_TYPE}/${STRAIN}"
 
+    echo "Training ${MODEL_TYPE} model for ${STRAIN} on device ${DEVICE}"
+    
+    # Create output directory
+    mkdir -p "$OUT_DIR"
+    
     python unified_models.py \
         --mode train \
         --assay_type "CHIP" \
@@ -41,10 +52,26 @@ run_chip_model() {
         --learning_rate 1e-4
 }
 
+# Display configuration
+echo "ChIP-seq Model Training"
+echo "======================"
+echo "Output directory: ${OUT_ROOT}"
+echo "SPRET data file: ${SPRET_DATA}"
+echo "PWK data file: ${PWK_DATA}"
+echo
+
 # Run SPRET models
-run_chip_model "SPRET" "single" "$SPRET_DATA" 2
-run_chip_model "SPRET" "multi" "$SPRET_DATA" 2
+echo "Processing SPRET models"
+run_chip_model "SPRET" "single" "$SPRET_DATA" 0
+run_chip_model "SPRET" "multi" "$SPRET_DATA" 0
+echo "SPRET models completed"
+echo
 
 # Run PWK models
+echo "Processing PWK models"
 run_chip_model "PWK" "single" "$PWK_DATA" 0
 run_chip_model "PWK" "multi" "$PWK_DATA" 0
+echo "PWK models completed"
+echo
+
+echo "All ChIP-seq models completed"

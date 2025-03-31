@@ -1,12 +1,18 @@
 #!/bin/bash
 
-# Common parameters
-OUT_ROOT="./output/ATAC-seq"
-WANDB_API_KEY="62cb39b9e832e674d05386ec0a742e4855bfa1d0"
-PROJECT_ID="DeepAllele-F1-ATAC"
+# ATAC-seq model training script for DeepAllele
+# This script trains various models on ATAC-seq data
 
-# ATAC-seq settings
-ATAC_DATA="/data/tuxm/project/F1-ASCA/data/input/bulk_seq_ATAC_preprocessed_new_20230126.hdf5"
+# Common parameters - adjust as needed
+OUT_ROOT="${OUT_ROOT:-./output/ATAC-seq}"
+PROJECT_ID="${PROJECT_ID:-DeepAllele-ATAC}"
+
+# Required: set your own Weights & Biases API key if using W&B
+WANDB_API_KEY="${WANDB_API_KEY:-YOUR_WANDB_API_KEY}"
+
+# ATAC-seq data location
+DATA_DIR="${DATA_DIR:-./data}"
+ATAC_DATA="${ATAC_DATA:-${DATA_DIR}/ATAC-seq-preprocessed.hdf5}"
 ATAC_BATCHES=("sum" "sc")
 
 # Function to run ATAC-seq model
@@ -16,6 +22,11 @@ run_atac_model() {
     local DEVICE=$3
     local OUT_DIR="${OUT_ROOT}/${MODEL_TYPE}/${BATCH_ID}"
 
+    echo "Training ${MODEL_TYPE} model for ${BATCH_ID} on device ${DEVICE}"
+    
+    # Create output directory
+    mkdir -p "$OUT_DIR"
+    
     python unified_models.py \
         --mode train \
         --assay_type "ATAC" \
@@ -41,9 +52,22 @@ run_atac_model() {
         --learning_rate 1e-4
 }
 
+# Display configuration
+echo "ATAC-seq Model Training"
+echo "======================"
+echo "Output directory: ${OUT_ROOT}"
+echo "Data file: ${ATAC_DATA}"
+echo "Batches to process: ${ATAC_BATCHES[*]}"
+echo
+
 # Run models for each batch
 for batch in "${ATAC_BATCHES[@]}"; do
-    run_atac_model "single" "$batch" 3
-    run_atac_model "multi" "$batch" 3
-    run_atac_model "multi_ComputedRatio" "$batch" 3
+    echo "Processing batch: $batch"
+    run_atac_model "single" "$batch" 0
+    run_atac_model "multi" "$batch" 0
+    run_atac_model "multi_ComputedRatio" "$batch" 0
+    echo "Completed models for batch: $batch"
+    echo
 done
+
+echo "All ATAC-seq models completed"

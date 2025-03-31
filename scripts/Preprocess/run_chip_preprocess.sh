@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Updated paths for ChIP-seq processing
-SEQUENCE_PATH="/homes/gws/tuxm/Project/F1-ASCA/data/input/Chip-seq/PU1_F1_ChIP/combined_peaks_gr_pu1_f1_"
-C57_PWK_CHIP="/data/tuxm/project/F1-ASCA/data/input/Chip-seq/PU1_F1_ChIP/peaks_F1_BMDM_FPC_PWK_C57_PU1_notx.txt"
-C57_SPRET_CHIP="/data/tuxm/project/F1-ASCA/data/input/Chip-seq/PU1_F1_ChIP/peaks_F1_BMDM_FSC_SPRET_C57_PU1_notx.txt"
-OUTPUT_DIR="/homes/gws/tuxm/Project/DeepAllele-public/explore/preprocess-script/output"
+# ChIP-seq preprocessing script for DeepAllele
+# This script processes ChIP-seq data for model training
+
+# Configuration - adjust these paths as needed
+DATA_DIR="${DATA_DIR:-/path/to/data}"
+OUTPUT_DIR="${OUTPUT_DIR:-./output}"
+
+# Default paths - override with environment variables if needed
+SEQUENCE_PATH="${SEQUENCE_PATH:-${DATA_DIR}/Chip-seq/PU1_F1_ChIP/combined_peaks_gr_pu1_f1_}"
+C57_PWK_CHIP="${C57_PWK_CHIP:-${DATA_DIR}/Chip-seq/PU1_F1_ChIP/peaks_F1_BMDM_FPC_PWK_C57_PU1_notx.txt}"
+C57_SPRET_CHIP="${C57_SPRET_CHIP:-${DATA_DIR}/Chip-seq/PU1_F1_ChIP/peaks_F1_BMDM_FSC_SPRET_C57_PU1_notx.txt}"
 
 # Default sequence length
 SEQ_LENGTH=551
@@ -17,8 +23,12 @@ fi
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-echo "Running ChIP-seq preprocessing with sequence length: ${SEQ_LENGTH}"
+echo "ChIP-seq Preprocessing"
+echo "===================="
+echo "Sequence length: ${SEQ_LENGTH}"
 echo "Output directory: ${OUTPUT_DIR}"
+echo "Sequence path: ${SEQUENCE_PATH}"
+echo
 
 # Run the preprocessing script
 python chip-seq_preprocess.py \
