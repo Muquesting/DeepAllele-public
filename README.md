@@ -1,4 +1,4 @@
-# DeepAllele
+# DeepAllele: Deep genomic models of allele-specific measurements
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -43,16 +43,16 @@ conda activate DeepAllele
 pip install -e .
 ```
 
-## Download pre-trained models and data
+## Download trained model checkpoints and data
 
-We provide pre-trained models and processed data for reproducibility:
+We provide trained model checkpoints and processed data for reproducibility:
 
 ```bash
-# Download pre-trained models and processed data
+# Download trained model checkpoints and processed data
 bash scripts/download_models.sh
 ```
 
-This script downloads models and data from Zenodo and organizes them into the correct directory structure.
+This script downloads model checkpoints and data from Zenodo and organizes them into the correct directory structure.
 
 ## Repository Structure
 
@@ -70,7 +70,7 @@ This script downloads models and data from Zenodo and organizes them into the co
   - `Analyze_model/` - Model analysis and interpretation scripts
   - `ModelTraining/` - Scripts for training models
   - `Process/` - Data processing documentation and utilities
-  - `download_models.sh` - Script to download pre-trained models
+  - `download_models.sh` - Script to download trained model checkpoints
 
 ## Data Processing
 
