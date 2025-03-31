@@ -9,6 +9,8 @@ Allele-specific quantification of sequencing data, such as gene expression, allo
 
 DeepAllele is a deep learning framework for predicting allele-specific gene regulation from DNA sequence. The framework uses a multi-head neural network architecture that learns to:
 
+![DeepAllele summary figure](fig-summary.png)
+
 1. Predict counts for each allele (B6 and CAST in our F1 hybrid mice model)
 2. Predict the ratio between alleles
 3. Learn regulatory motifs that contribute to allelic imbalance
