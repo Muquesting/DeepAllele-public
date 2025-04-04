@@ -14,69 +14,107 @@ import seaborn as sns
 from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
 import scanpy as sc
+import logging
+import sys
 
 from DeepAllele import tools, data
 from DeepAllele.tools import pearson_r
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='Preprocess ATAC-seq data')
-    parser.add_argument('--input-csv', required=True,
+    """Parse command line arguments for ATAC-seq preprocessing.
+    
+    Returns:
+        argparse.Namespace: Parsed command line arguments
+    """
+    parser = argparse.ArgumentParser(
+        description='Preprocess ATAC-seq data for DeepAllele',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    
+    # Required arguments
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('--input-csv', required=True,
                         help='Path to input CSV file with ATAC-seq data')
-    parser.add_argument('--data-path', required=True,
+    required.add_argument('--data-path', required=True,
                         help='Base path to data directory')
-    parser.add_argument('--b6-seq-path', required=True,
+    required.add_argument('--b6-seq-path', required=True,
                         help='Path to B6 sequences FASTA file')
-    parser.add_argument('--cast-seq-path', required=True,
+    required.add_argument('--cast-seq-path', required=True,
                         help='Path to CAST/shifted sequences FASTA file')
-    parser.add_argument('--sc-data-path', 
-                        help='Path to single-cell data directory (optional)')
-    parser.add_argument('--output', required=True,
+    required.add_argument('--output', required=True,
                         help='Path to output HDF5 file')
-    parser.add_argument('--peak-info',
-                        help='Path to peak info file (optional)')
+    
+    # Optional arguments
+    optional = parser.add_argument_group('optional arguments')
+    optional.add_argument('--sc-data-path', 
+                        help='Path to single-cell data directory')
+    optional.add_argument('--peak-info',
+                        help='Path to peak info file')
+    optional.add_argument('--log-level', default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level')
+    
     return parser.parse_args()
 
+
 def load_and_process_bulk_data(args):
-    """Load and process the bulk ATAC-seq data"""
-    print("Loading bulk ATAC-seq data...")
+    """Load and process the bulk ATAC-seq data.
+    
+    Reads the CSV file containing ATAC-seq data, processes B6 and CAST strain data,
+    and calculates log ratios for comparative analysis.
+    
+    Args:
+        args (argparse.Namespace): Command line arguments
+        
+    Returns:
+        pandas.DataFrame: Processed bulk ATAC-seq data
+        
+    Raises:
+        FileNotFoundError: If input CSV file is not found
+        ValueError: If the data cannot be processed properly
+    """
+    logger.info("Loading bulk ATAC-seq data...")
     
     # Check if file exists and is readable
     if not os.path.isfile(args.input_csv):
         raise FileNotFoundError(f"Input CSV file not found: {args.input_csv}")
         
     # Load data
-    print(f"Reading file: {args.input_csv}")
-    df = pd.read_csv(args.input_csv)
+    logger.info(f"Reading file: {args.input_csv}")
+    try:
+        df = pd.read_csv(args.input_csv)
+    except Exception as e:
+        raise ValueError(f"Failed to read CSV file: {e}")
     
     # Rename the first column to peak_name if needed
     if 'Unnamed: 0' in df.columns:
         df.rename(columns={'Unnamed: 0': 'peak_name'}, inplace=True)
     
-    print(f"Loaded data with {len(df)} peaks and {len(df.columns)} columns")
+    logger.info(f"Loaded data with {len(df):,} peaks and {len(df.columns)} columns")
     
     # Process the data for B6 and CAST strains
-    print("Computing summary columns...")
+    logger.info("Computing summary columns...")
     
     # Get counts for B6 and CAST
-    df['sum.B6'] = df[df.columns[df.columns.str.contains('B6')]].sum(axis=1)
-    df['sum.CAST'] = df[df.columns[df.columns.str.contains('CAST')]].sum(axis=1)
+    b6_columns = [col for col in df.columns if 'B6' in col]
+    cast_columns = [col for col in df.columns if 'CAST' in col]
     
-    # Get counts for each replicate
-    for i in range(1, 5):
-        df[f'rep{i}.B6'] = df[df.columns[df.columns.str.contains(f'rep{i}.B6')]].sum(axis=1)
-        df[f'rep{i}.CAST'] = df[df.columns[df.columns.str.contains(f'rep{i}.CAST')]].sum(axis=1)
+    if not b6_columns or not cast_columns:
+        raise ValueError("No B6 or CAST columns found in the input data")
     
-    # Process cell types
-    cell_type_list = ['Treg', 'Tcon', 'resting_Treg', 'resting_Tcon', 'activated_Treg', 'activated_Tcon']
-    
-    for cell_type in cell_type_list:
-        b6_columns = [col for col in df.columns if cell_type in col and 'B6' in col]
-        cast_columns = [col for col in df.columns if cell_type in col and 'CAST' in col]
-        
-        if b6_columns:
-            df[f'{cell_type}.B6'] = df[b6_columns].sum(axis=1)
-        if cast_columns:
-            df[f'{cell_type}.CAST'] = df[cast_columns].sum(axis=1)
+    df['sum.B6'] = df[b6_columns].sum(axis=1)
+    df['sum.CAST'] = df[cast_columns].sum(axis=1)
     
     # Calculate log ratios
     columns_name = df.columns.tolist()
@@ -84,7 +122,16 @@ def load_and_process_bulk_data(args):
     
     for batch_name in columns_name_B6:
         name = batch_name.split('.')[0]
-        df[f'{name}.ratio'] = np.log((1+df[f'{name}.B6'].astype(float)) / (1+df[f'{name}.CAST'].astype(float)))
+        cast_column = f'{name}.CAST'
+        if cast_column in df.columns:
+            # Calculate log ratio with pseudocount of 1 to avoid log(0)
+            df[f'{name}.ratio'] = np.log((1+df[f'{name}.B6'].astype(float)) / 
+                                        (1+df[f'{name}.CAST'].astype(float)))
+    
+    # Only keep essential columns
+    columns_to_keep = ['peak_name', 'sum.B6', 'sum.CAST', 'sum.ratio']
+    df = df[columns_to_keep]
+    logger.info(f"After processing: {len(df):,} peaks and {len(df.columns)} columns")
     
     return df
 
@@ -138,15 +185,23 @@ def load_single_cell_data(args, peak_data):
         total_ratio = np.log((1+total_counts_b6) / (1+total_counts_cast))
         b6_ad.var["sc.ratio"] = total_ratio[0]
         
+        # Get the var dataframe with all needed information
         treg_peak_data = b6_ad.var.copy()
         treg_peak_data["sc.B6"] = total_counts_b6.T
         treg_peak_data["sc.CAST"] = total_counts_cast.T
         
-        # Ensure consistent peak_name format
-        treg_peak_data.reset_index(inplace=True)
-        treg_peak_data.rename(columns={'index': 'peak_name'}, inplace=True)
+        # Reset index to get the peak names as a column
+        treg_peak_data = treg_peak_data.reset_index()
+        
+        # Check if the column 'peak_name' already exists in treg_peak_data
+        # If so, we need to drop it to avoid duplicates after renaming the index
+
         treg_peak_data['peak_name'] = treg_peak_data['peak_name'].astype(str)
         
+        # Remove any potential duplicate columns
+        treg_peak_data = treg_peak_data.loc[:, ~treg_peak_data.columns.duplicated()]
+        
+
         # Merge with main peak data
         peak_data['peak_name'] = peak_data['peak_name'].astype(str)
         peak_data = peak_data.merge(treg_peak_data, on="peak_name", how="inner")
@@ -168,11 +223,10 @@ def load_peak_info(args, peak_data):
         print(f"Loading peak info from: {args.peak_info}")
         # Read the peak info file
         peak_info = pd.read_csv(args.peak_info, header=None, sep='\t')
-        
+        print(peak_info.head(3))
         # Name columns based on typical BED format
         if peak_info.shape[1] >= 3:
-            peak_info.columns = ['chr', 'start', 'end'] + \
-                              [f'col{i}' for i in range(4, peak_info.shape[1] + 1)]
+            peak_info.columns = ['chr', 'start', 'end', 'peak_name']
             
             # Ensure chromosome has 'chr' prefix
             peak_info['chr'] = peak_info['chr'].astype(str).apply(
@@ -180,26 +234,29 @@ def load_peak_info(args, peak_data):
             )
             
             # Create simple peak_name with chr-position format
-            peak_info['peak_name'] = peak_info.apply(
-                lambda row: f"peak-{row['chr']}-{row['start']}-{row['end']}",
+            peak_info['peak_coordinate'] = peak_info.apply(
+                lambda row: f"{row['chr']}-{row['start']}-{row['end']}",
                 axis=1
             )
-            
-            # Create a mapping from index to peak_name
-            peak_name_map = dict(enumerate(peak_info['peak_name']))
             
             # Apply mapping to peak_data
             if 'peak_name' in peak_data.columns:
                 # Store original peak names
                 peak_data['original_peak_index'] = peak_data['peak_name'].copy()
                 
-                # Map index to new peak name
-                peak_data['peak_name'] = peak_data['peak_name'].apply(
-                    lambda x: peak_name_map.get(int(x) if isinstance(x, str) and x.isdigit() else x, 
-                                               f"peak-unknown-{x}")
-                )
+                # Map new peak_coordinate names, peak_name as the overlapped key, to add the peak_coordinate to peak_data
+                peak_info_mapping = dict(zip(peak_info['peak_name'], peak_info['peak_coordinate']))
+                peak_data['peak_coordinate'] = peak_data['original_peak_index'].map(peak_info_mapping)
+
+                 # Check mapping success
+                mapped_count = peak_data['peak_coordinate'].notna().sum()
+                print(f"Successfully mapped {mapped_count} out of {len(peak_data)} peaks to coordinates")
+                
             
             print(f"Created simple peak names with chr-position format")
+            peak_data['peak_name'] = peak_data['peak_coordinate']
+            # drop the peak_coordinate column
+            peak_data.drop(columns=['peak_coordinate'], inplace=True)
             
             # Display sample peak names for verification
             print(f"Sample peak names: {peak_data['peak_name'].head(3).tolist()}")
@@ -226,7 +283,7 @@ def save_to_hdf5(args, peak_data):
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     
     print(f"Saving to HDF5 file: {args.output}")
-    
+    print("example of peak data:", peak_data.head(3))
     # Save to HDF5
     with h5py.File(args.output, "w") as f:
         # Add metadata
@@ -240,7 +297,8 @@ def save_to_hdf5(args, peak_data):
         # Add peak names
         str_dtype = h5py.string_dtype(encoding='utf-8')
         f.create_dataset("peak_name", data=np.array(peak_data["peak_name"].astype(str)), dtype=str_dtype)
-        
+        print(f"Added {len(peak_data)} peak names")
+        print("Example peak names:", peak_data["peak_name"].head(3).tolist())
         # Add all numerical columns
         for column in peak_data.columns:
             if column == "peak_name":
@@ -261,10 +319,12 @@ def save_to_hdf5(args, peak_data):
                 except Exception as e:
                     print(f"Warning: Could not process column {column}: {e}")
             else:
-                try:
+                if 'ratio' in column:
                     f[column] = np.array(peak_data[column], dtype=float)
-                except Exception as e:
-                    print(f"Warning: Could not process column {column}: {e}")
+                else:
+                    # save other non numerical columns, like peak_name, as string
+                    f[column] = np.array(peak_data[column].astype(str), dtype=str_dtype)
+        print(f"Added {len(peak_data)} numerical columns")
     
     print(f"Successfully saved to {args.output}")
 
@@ -277,12 +337,14 @@ def main():
     # Step 2: Load sequences and merge
     peak_data = load_sequences_and_merge(args, peak_data)
     
-    # Step 3: Load and apply peak information (new step)
-    peak_data = load_peak_info(args, peak_data)
-    
     # Step 4: Load single-cell data if available
     peak_data = load_single_cell_data(args, peak_data)
     
+    # Step 3: Load and apply peak information (new step)
+    peak_data = load_peak_info(args, peak_data)
+
+    print("peak data columns:", peak_data.columns)
+    print("peak data shape:", peak_data.shape)
     # Step 5: Save to HDF5
     save_to_hdf5(args, peak_data)
     

@@ -9,34 +9,6 @@ import numpy as np
 from tqdm import tqdm
 from DeepAllele import tools
 
-def get_peak_chroms(peak_labels):
-    peak_data = pd.read_csv(
-        "/data/tuxm/project/F1-ASCA/data/raw_data/peaks_info_updated_2021_12_16.txt",
-        delimiter="\t",
-        header=None,
-    )
-    peak_data.columns = ["chr", "start", "end", "peak_name"]
-    peak_data.set_index("peak_name", inplace=True)
-    chroms = []
-    for label in peak_labels:
-        # print(label)
-
-        if label in peak_data.index:
-            # print('in data')
-            if isinstance(peak_data.loc[label]["chr"], str):
-                # print(peak_data.loc[label]['chr'])
-                chrom = peak_data.loc[label]["chr"].split("r")[1]
-                chroms.append(chrom)
-            else:  # its nan
-                chroms.append("nan_chr_label")
-
-        else:
-            chroms.append("not_in_dataset")
-
-    chroms = np.array(chroms)
-    return chroms
-
-
 # TODO: speed up the DF2array function using apply function
 def DF2array(DF, sequence_name, length=330):
     """[summary]
@@ -142,28 +114,14 @@ def load_h5(
 
         if split_by_chrom:
             print("splitting train and val by chrom")
-
-            if "atac" in os.path.basename(path).lower():
-                print("ATAC seq dataset")
-
-                chroms = get_peak_chroms(peak_name_dataset)
-                val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
-                not_val_index = np.logical_not(val_index)
-                remove_index = np.logical_not(
-                    (chroms == "nan_chr_label") | (chroms == "not_in_dataset")
-                )
-                train_index = remove_index & not_val_index
-                print("finish splitting train and val by chrom")
-
-            else:
-                print("not ATAC seq dataset")
-                chroms = []
-                for peak_name in peak_name_dataset:
-                    chrom = peak_name.split("chr")[1].split("-")[0]
-                    chroms.append(chrom)
-                chroms = np.array(chroms)
-                val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
-                train_index = np.logical_not(val_index)
+            chroms = []
+            for peak_name in peak_name_dataset:
+                chrom = peak_name.split("chr")[1].split("-")[0]
+                chroms.append(chrom)
+            chroms = np.array(chroms)
+            val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
+            train_index = np.logical_not(val_index)
+            print('splitting finished: there are {} samples in val and {} samples in train'.format(val_index.sum(), train_index.sum()))
 
         else:
             print("not splitting train and val by chrom")
@@ -270,35 +228,20 @@ def load_h5_single(
         if split_by_chrom:
             print("splitting by chrom")
 
-            if "atac" in os.path.basename(path).lower():
-                print("ATAC seq dataset")
+            chroms = []
+            for peak_name in peak_name_dataset:
+                chrom = peak_name.split("chr")[1].split("-")[0]
+                chroms.append(chrom)
+            chroms = np.array(chroms)
 
-                chroms = get_peak_chroms(peak_name_dataset)
+            val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
 
-                # val_index = (chroms == '1') | (chroms == '19')
-                val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
-
-                not_val_index = np.logical_not(val_index)
-                remove_index = np.logical_not(
-                    (chroms == "nan_chr_label") | (chroms == "not_in_dataset")
+            train_index = np.logical_not(val_index)
+            print(
+                "splitting finished: there are {} samples in val and {} samples in train".format(
+                    val_index.sum(), train_index.sum()
                 )
-                train_index = remove_index & not_val_index
-
-            else:
-                print("not ATAC seq dataset")
-                chroms = []
-                for peak_name in peak_name_dataset:
-                    chrom = peak_name.split("chr")[1].split("-")[0]
-                    chroms.append(chrom)
-                chroms = np.array(chroms)
-
-                # print(len(chroms))
-
-                # val chroms = ['1', '19']
-                # val_index = (chroms == '1') | (chroms == '19')
-                val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
-
-                train_index = np.logical_not(val_index)
+            )
 
         else:
             print("not splitting train and val by chrom")
