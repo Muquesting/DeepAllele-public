@@ -972,7 +972,6 @@ def plot_distribution(
                     mediancolor = [mediancolor[c] for c in range(len(data))]
             else:
                 mediancolor = [mediancolor for c in range(len(data))]
-            
     # if median color is not None, need to replicate into list
     if mediancolor is not None:
         if not isinstance(mediancolor, list):
@@ -1021,7 +1020,7 @@ def plot_distribution(
             if len(np.shape(data)) > 1:
                 data = np.mean(data, axis = 1)
             bplot = ax.barh(positions, data, height = width*0.9, color = barcolor, linewidth = 1)
-            ax.set_ylim([np.amin(positions)-0.5, np.amax(positions)+0.5])
+            ax.set_ylim([-0.5, len(positions)//split-0.5])
         
         # create a legend()
         if isinstance(facecolor, list) and legend_labels is not None:

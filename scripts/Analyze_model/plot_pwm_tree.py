@@ -157,19 +157,20 @@ if __name__ == '__main__':
             pfnames = pffile[:,0]
             pfeffects = pffile[:,[1]].astype(float)
         # Join determines how many boxplots are shown for each data point
-        if len(pfeffects)%len(pfnames) != 0:
+        if len(pfeffects)%len(np.unique(pfnames)) != 0:
             print('pwmfeatures do not match pfnames')
             sys.exit()
-        join = int(len(pfeffects)/len(pfnames)) # if more effects than names in file
+        join = int(len(pfeffects)/len(np.unique(pfnames))) # if more effects than names in file
         # join will be larger
         pwmfeatures = [[] for j in range(join)]
         keep = [] # sort features to pwmnames and only keep pwm names with features
         for p, pwmname in enumerate(pwmnames):
             for j in range(join):
                 if pwmname in pfnames:
-                    pwmfeatures[j].append(pfeffects[j *len(pfnames)+list(pfnames).index(pwmname)])
+                    pwmfeatures[j].append(pfeffects[np.where(pfnames == pwmname)[0][j]])
                     if j == 0: 
                         keep.append(p)
+
         if len(keep) < len(pwmnames):
             notkeep = np.arange(len(pwmnames))
             notkeep = notkeep[~np.isin(notkeep, keep)]

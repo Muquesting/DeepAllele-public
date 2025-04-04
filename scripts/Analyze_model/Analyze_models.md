@@ -1,13 +1,13 @@
-# Analyze learned regulatory grammar with sequence attributions
+# Analyze DeepAllele's learned regulatory syntax with sequence attributions
 
-Here, we demonstrate how to use sequence attributions from trained DeepAllele models to make predictions for variant effect sizes, and to determine the regulatory mechanisms that lead to allelic imbalances in the data set. DeepAllele shows improved performance for predictions of allelic imbalances over classical models that were only trained on counts. The ratio head uses sequences from both alleles as input to predict allelic ratios. This additional objective improves predictions for allelic ratios. Attributions from the "ratio"-head return importance scores for both alleles. These sequence attributions contain motifs that are important for predicting both allelic counts, and the ratio. The differences between the size of motifs in the two allelic sequences is directely related to the ratio predictions.
+Here, we demonstrate how to use sequence attributions (base pair importance scores) from trained DeepAllele models to make predictions about variant effect sizes, and to determine the regulatory mechanisms that lead to allelic imbalances in the data set. DeepAllele shows improved performance for predictions of allelic imbalances over classical models that were only trained on a single sequence to predict its measured signal (counts). DeepAllele's ratio head uses sequences from both alleles as input to predict allelic ratios and both measured log-counts. The composite objective function consisting of the ratio- and the two count-losses improves predictions for allelic ratios. Consequently, sequence attributions from the "ratio"-head return importance scores for both alleles. These sequence attributions contain motifs that are important for predicting both, allelic counts and the ratio. The differences between the size of motifs in the two allelic sequences is directly related to the ratio predictions.
 
 
 ## 1. Make predictions with the model and determine trusted set of sequences
-No model is perfect! To determine which model predictions we can trust, we use the model's predictions for unseen sequences in the test set to determine for which it might have learned the correct mechanisms. 
+No model is perfect! To determine which model predictions we can trust, we use the model's predictions for unseen sequences in the test set to determine for which it might have learned about the regulatory mechanisms driving allelic imbalances. Note, to increase trust in the models predictions, one can also train multiple models with different random initializations (seeds) to determine for which data points the model consistently predicts the correct effect direction (T-test difference from zero).  
 
 ### Get models and processed data from the paper
-Use `download_models.sh` to download the processed data and trained models from Zenodo. This bash script also initializes PATH structure for `atac/`, `chip/`, and `rna/` with `models/`, `data/` and `results/` in each of them.
+Use `download_models.sh` to download the processed data and trained models from Figshare. This bash script also initializes PATH structure for `atac/`, `chip/`, and `rna/` with `models/`, `data/` and `results/` in each of them.
 
 ### Set relevant PATHs for subsequent analysis
 ```
@@ -17,7 +17,7 @@ scriptdir=/PATH/to/DeepAllele-public/scripts/ #path to scripts
 intdir=${scriptdir}/Analyze_models/ $ path to analysis scripts
 
 # For example 
-dataset=atac0/ # for some ATAC-seq data set
+dataset=atac/bulk/ # for the bulk ATAC-seq data set
 
 modeldir=/PATH/to/${dataset}/models/ # path to model parameters
 datadir=/PATH/to/${dataset}/data/ # path to data 
@@ -26,26 +26,29 @@ outdir=/PATH/to/${dataset}/results/ # path to results
 ```
 
 We assume that the results of this analysis will be saved in the following structure:
+
 ```
 # For example
 modeltype=mh # for multi-head, 
 initialization=init0 # seed for model initialization
 resultdir=${outdir}/${modeltype}/${initialization}/
 ```
-`initialization` can be different random starting points from which the model learns, different model architectures, or anything that defines the models specific training run. It describes a variant of the model.
+
+`$initialization` can be different random starting points from which the model learns, different model architectures, or anything that defines the models specific training run. It describes a variant of the model.
 
 We assume that your models are located in the following structure:
 ```
 ourmodelsdir=${modeldir}/${modeltype}/${initialization}/
 ```
 
-### Get one-hot encodings of test set sequences, and measured values
+### Get one-hot encodings of test set sequences, and the measured values from the processed data file
 
-Extract data from hdf5 path 
+Extract arrays from the hdf5 files. 
+
 ```
-hdf5_path=${ourmodelsdir}$<Name of hdf5 file>
+hdf5_path=${datadir}$<Name of hdf5 file>
 
-batch_id is used to select which dataset to load in from the ATAC hdf5 file.
+# batch_id is used to select which dataset to load in from the ATAC hdf5 file.
 To load the data from the paper:
 van der Veeken, J. et al. Natural genetic variation reveals key features of epigenetic and transcriptional memory in virus-specific CD8 T cells.
 Immunity 50, 1202-1217.e7 (2019).
@@ -250,6 +253,14 @@ Determine the percentage of sequences with a motif that this cluster appears in
 python ${intdir}count_seq_for_clusters.py $seqletclusters
 # Returns
 clusterperc=${seqletclusters%.txt}_motifpercinseq.txt
+
+# Alternatively, count how many are positive and how many are negative
+python ${intdir}count_seq_for_clusters.py $seqletclusters --split_effect_direction $seqleteffects
+# Returns
+clusterposperc=${seqletclusters%.txt}_motifpercposinseq.txt
+clusternegperc=${seqletclusters%.txt}_motifpercneginseq.txt
+# Combine for plotting
+cat $clusterposperc $clusternegperc > ${clusterperc}
 ```
 
 If the number of clusters is too large, filter noisy motifs by setting a reasonable cutoff for the minimum number of members in these sequences. E.g. only consider clusters that have at least 20 members in either one Allele of 10k sequences.
