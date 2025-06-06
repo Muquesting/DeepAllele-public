@@ -17,7 +17,7 @@ datadir=data/
 
 mkdir -p "${datadir}atac/data/"
 
-wget -O ${datadir}atac/data/ATAC-seq-preprocessed.hdf5 https://figshare.com/ndownloader/files/53316875
+wget -O ${datadir}atac/data/ATAC-seq-preprocessed.hdf5 https://figshare.com/ndownloader/files/53409875
 mkdir -p "${datadir}atac/sc/results/mh/init0/"
 mkdir -p "${datadir}atac/sc/results/sh/init0/"
 mkdir -p "${datadir}atac/sc/models/mh/init0/"
@@ -33,7 +33,7 @@ wget -O ${datadir}atac/bulk/models/mh/init0/model.ckpt https://figshare.com/ndow
 
 
 mkdir -p "${datadir}rna/data/"
-wget -O ${datadir}rna/data/RNA-seq-preprocessed.hdf5 https://figshare.com/ndownloader/files/53316854
+wget -O ${datadir}rna/data/RNA-seq-preprocessed.hdf5 https://figshare.com/ndownloader/files/53431304
 
 mkdir -p "${datadir}rna/Bcell/models/mh/init0/"
 mkdir -p "${datadir}rna/Bcell/models/sh/init0/"
@@ -52,9 +52,9 @@ wget -O ${datadir}rna/MFcell/models/mh/init0/model.ckpt https://figshare.com/ndo
 
 
 mkdir -p "${datadir}chip/data/SPRET/"
-wget -O ${datadir}chip/data/SPRET/sequence_datasets_chip_SPRET_B6.hdf5 https://figshare.com/ndownloader/files/53316869
+wget -O ${datadir}chip/data/SPRET/sequence_datasets_chip_SPRET_B6.hdf5 https://figshare.com/ndownloader/files/53431313
 mkdir -p "${datadir}chip/data/PWK/"
-wget -O ${datadir}chip/data/PWK/sequence_datasets_chip_PWK_B6.hdf5 https://figshare.com/ndownloader/files/53316863
+wget -O ${datadir}chip/data/PWK/sequence_datasets_chip_PWK_B6.hdf5 https://figshare.com/ndownloader/files/53431310
 
 mkdir -p "${datadir}chip/SPRET/models/mh/init0/"
 mkdir -p "${datadir}chip/SPRET/models/sh/init0/"
