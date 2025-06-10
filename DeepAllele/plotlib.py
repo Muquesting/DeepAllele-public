@@ -3,8 +3,10 @@ import sys, os
 import matplotlib.pyplot as plt
 import logomaker as lm
 import pandas as pd
+from scipy.datasets import face
+from torch import le
 from .motif_analysis import align_onehot, torch_compute_similarity_motifs 
-from matplotlib import cm
+from matplotlib import cm, legend
 from scipy.spatial.distance import pdist, cdist
 from scipy.cluster.hierarchy import dendrogram, linkage
 import seaborn as sns
@@ -12,6 +14,7 @@ import matplotlib as mpl
 from scipy.stats import gaussian_kde, pearsonr
 from sklearn import linear_model
 import matplotlib.patches as mpatches
+
 
 def add_frames(att, locations, colors, ax):
     '''
@@ -1022,13 +1025,20 @@ def plot_distribution(
             bplot = ax.barh(positions, data, height = width*0.9, color = barcolor, linewidth = 1)
             ax.set_ylim([-0.5, len(positions)//split-0.5])
         
-        # create a legend()
-        if isinstance(facecolor, list) and legend_labels is not None:
-            handles = []
-            for f, fcol in enumerate(facecolor):
-                patch = mpatches.Patch(color=fcol, label=legend_labels[f])
-                handles.append(patch)
-            ax.legend(handles = handles)
+        if fcolor is not None:
+            # create legend()
+            if isinstance(facecolor, list) and legend_labels is not None:
+                handles = []
+                for f, fcol in enumerate(facecolor):
+                    patch = mpatches.Patch(color=fcol, label=legend_labels[f])
+                    handles.append(patch)
+                if legend_above:
+                    print('legend above')
+                    ax.legend(handles = handles,bbox_to_anchor=(0, 1.02, 1, 1.), loc="lower left",
+                    mode="expand", borderaxespad=0, ncol=1)
+                else:
+                    ax.legend(handles = handles)
+                
     else:
         if facecolor is None or fcolor is not None:
             boxplotcolor = (0,0,0,0)
@@ -1049,6 +1059,7 @@ def plot_distribution(
                     patch = mpatches.Patch(color=fcol, label=legend_labels[f])
                     handles.append(patch)
                 if legend_above:
+                    print('legend above')
                     ax.legend(handles = handles,bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left",
                     mode="expand", borderaxespad=0, ncol=3)
                 else:
@@ -1144,5 +1155,145 @@ def piechart(percentages, labels = None, colors = None, cmap = 'tab10', cmap_ran
     if return_fig:
         return fig
 
+def plot_boxplot(data, labels=None, motif=None, title = None, save_path=None, horizontal=False, axis_label = 'Data Values'):
+    """Create a boxplot and swarm plot of the data.
+    and if given, put the sequence logo above the plot.
+    Args:
+        data: list of arrays with data to plot
+        labels: list of labels for the data
+        motif: motif to plot as a logo
+        title: title of the plot
+        save_path: path to save the plot
+    """
 
 
+    fig, axes = plt.subplots(2, 1, figsize=(4, 5), gridspec_kw={'height_ratios': [1, 4]})
+    
+    if motif is not None:
+        motif = np.log2((motif + 1e-16)/0.25)  # Convert motif to log2 scale
+        channels = ['A', 'C', 'G', 'T']
+        motif[motif<0] = 0
+        lim = [0,2]
+        ax = axes[0]
+        lm.Logo(pd.DataFrame(motif, columns=channels), ax=ax, color_scheme='classic')
+        ax.set_ylim(lim)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        if title is not None:
+            ax.set_title(title)
+        ax = axes[1]
+    else:
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.add_subplot(111)
+        if title is not None:
+            ax.set_title(title)
+
+    # Determine if data is too dense for swarmplot
+    # Heuristic: if number of points per group > 200, use stripplot
+    use_strip = False
+    if isinstance(data, list) or isinstance(data, np.ndarray):
+        group_sizes = [len(d) for d in data]
+        if max(group_sizes) > 200:
+            use_strip = True
+
+    if horizontal:
+        ax.boxplot(data, vert=False, positions=[0, 1], tick_labels=labels)
+        ax.set_xlabel(axis_label)
+        if use_strip:
+            sns.stripplot(data=data, ax=ax, color='black', alpha=0.5, size=2, orient='h')
+        else:
+            sns.swarmplot(data=data, ax=ax, color='black', alpha=0.5, size=3, orient='h')
+        ax.plot([0, 0], ax.get_ylim(), color='black', linestyle='--', linewidth=0.5)
+    else:
+        ax.boxplot(data, positions=[0, 1], tick_labels=labels)
+        if use_strip:
+            sns.stripplot(data=data, ax=ax, color='black', alpha=0.5, size=2)
+        else:
+            sns.swarmplot(data=data, ax=ax, color='black', alpha=0.5, size=3)
+        ax.plot(ax.get_xlim(), [0, 0], color='black', linestyle='--', linewidth=0.5)
+        ax.set_ylabel(axis_label)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
+
+def scatter_plot(x, y, motif = None, xlabel='X', ylabel='Y', title=None, size = 5, alpha = 1.,
+                 color = 'grey', lw = 0, cmap = 'viridis', contour = False ,save_path=None):
+    """Create a scatter plot of x vs y.
+    and if given, put the sequence logo above the plot.
+    Args:"""
+    x = np.array(x)
+    y = np.array(y)
+    if len(x) != len(y):
+        raise ValueError("x and y must have the same length.")
+    if len(x) == 0 or len(y) == 0:
+        raise ValueError("x and y must not be empty.")
+    if np.isnan(x).any() or np.isnan(y).any():
+        raise ValueError("x and y must not contain NaN values.")
+    if np.isinf(x).any() or np.isinf(y).any():
+        raise ValueError("x and y must not contain infinite values.")
+
+    if isinstance(color, str):
+        if color == 'density':
+            # Calculate the density of points with gaussian kernel density estimation
+            from scipy.stats import gaussian_kde
+            xy = np.vstack([x, y])
+            z = gaussian_kde(xy[:,:3000])(xy)
+            color = (z - np.min(z)) / (np.max(z) - np.min(z))  # Normalize density values to [0, 1]
+    elif isinstance(color, (list, np.ndarray)):
+        if len(color) != len(x):
+            raise ValueError("color must have the same length as x and y.")
+        color = np.array(color)
+        if np.isnan(color).any():
+            raise ValueError("color must not contain NaN values.")
+        if np.isinf(color).any():
+            raise ValueError("color must not contain infinite values.")
+    
+    if contour:
+        from scipy.stats import gaussian_kde
+        xy = np.vstack([x, y])
+        z = gaussian_kde(xy)(xy)
+        z = (z - np.min(z)) / (np.max(z) - np.min(z))
+        
+
+    # Create a scatter plot of size 4,4 and a logo above it with size 4,1
+    # Create a figure with two subplots: one for the logo and one for the scatter plot
+    # The logo will be created using logomaker
+    if motif is not None:
+        fig, axes = plt.subplots(2, 1, figsize=(4, 5), gridspec_kw={'height_ratios': [1, 4]})
+        motif = np.log2((motif + 1e-16)/0.25)  # Convert motif to log2 scale
+        channels = ['A', 'C', 'G', 'T']
+        motif[motif<0] = 0
+        lim = [0,2]
+        ax = axes[0]
+        lm.Logo(pd.DataFrame(motif, columns = channels), ax = ax, color_scheme = 'classic')
+        ax.set_ylim(lim)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        if title is not None:
+            ax.set_title(title)
+        ax = axes[1]
+    else:
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.add_subplot(111)
+        if title is not None:
+            ax.set_title(title)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    scat = ax.scatter(x, y, alpha=alpha, s=size, c=color, cmap=cmap, linewidth=lw)
+    ax.plot([0,0], ax.get_ylim(), color='black', linestyle='--', linewidth=0.5, zorder=-1)
+    ax.plot(ax.get_xlim(), [0,0], color='black', linestyle='--', linewidth=0.5, zorder=-1)
+    if contour:
+        from matplotlib.colors import Normalize
+        norm = Normalize(vmin=np.min(z), vmax=np.max(z))
+        contour = ax.tricontourf(x, y, z, levels=10, cmap=cmap, norm=norm, alpha=0.5)
+        fig.colorbar(contour, ax=ax, label='Density', orientation='vertical')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    corr = pearsonr(x, y)[0]
+    ax.legend([scat], [f'Pearson r = {corr:.2f}'], loc='upper left', fontsize=8)
+    if save_path:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight')
+    plt.show()
