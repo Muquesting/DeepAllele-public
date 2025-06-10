@@ -61,6 +61,7 @@ def load_h5(
     batch_id=None,
     seed=42,
     split_by_chrom=False,
+    val_chroms=None,
 ):
     """[summary]
     load h5 file into dataloader
@@ -70,10 +71,17 @@ def load_h5(
         batch_size (int, optional): [description]. Defaults to 32.
         shuffle (bool, optional): [description]. Defaults to False.
         batch_id ([string], optional): [the batch id of the data]. Defaults to None. or list of string
+        seed (int, optional): [random seed]. Defaults to 42.
+        split_by_chrom (bool, optional): [whether to split by chromosome]. Defaults to False.
+        val_chroms (list, optional): [chromosomes to use for validation]. Defaults to ["16", "17", "18"].
 
     Returns:
         train_loader, val_loader, train_peak_name, val_peak_name
     """
+    # Set default validation chromosomes if not specified
+    if val_chroms is None:
+        val_chroms = ["16", "17", "18"]
+        
     f = h5py.File(path, "r")
     Cast_sequence = f["Cast_sequence"][:]
     B6_sequence = f["B6_sequence"][:]
@@ -119,9 +127,15 @@ def load_h5(
                 chrom = peak_name.split("chr")[1].split("-")[0]
                 chroms.append(chrom)
             chroms = np.array(chroms)
-            val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
+            
+            # Create validation index using the specified validation chromosomes
+            val_index = np.zeros(len(chroms), dtype=bool)
+            for chrom in val_chroms:
+                val_index = val_index | (chroms == chrom)
+                
             train_index = np.logical_not(val_index)
-            print('splitting finished: there are {} samples in val and {} samples in train'.format(val_index.sum(), train_index.sum()))
+            print('splitting finished: using chromosomes {} for validation'.format(val_chroms))
+            print('there are {} samples in val and {} samples in train'.format(val_index.sum(), train_index.sum()))
 
         else:
             print("not splitting train and val by chrom")
@@ -175,6 +189,7 @@ def load_h5_single(
     seed=42,
     Genome=["B6", "Cast"],
     split_by_chrom=False,
+    val_chroms=None,
 ):
     """[summary]
     load h5 file into dataloader
@@ -184,6 +199,10 @@ def load_h5_single(
         batch_size (int, optional): [description]. Defaults to 32.
         shuffle (bool, optional): [description]. Defaults to False.
         batch_id ([string], optional): [the batch id of the data]. Defaults to None. or list of string
+        seed (int, optional): [random seed]. Defaults to 42.
+        Genome (list, optional): [list of genome names]. Defaults to ["B6", "Cast"].
+        split_by_chrom (bool, optional): [whether to split by chromosome]. Defaults to False.
+        val_chroms (list, optional): [chromosomes to use for validation]. Defaults to ["16", "17", "18"].
 
     Returns:
         train_loader, val_loader, train_peak_name, val_peak_name
@@ -234,12 +253,19 @@ def load_h5_single(
                 chroms.append(chrom)
             chroms = np.array(chroms)
 
-            val_index = (chroms == "16") | (chroms == "17") | (chroms == "18")
+            # Set default validation chromosomes if not specified
+            if val_chroms is None:
+                val_chroms = ["16", "17", "18"]
+            
+            # Create validation index using the specified validation chromosomes
+            val_index = np.zeros(len(chroms), dtype=bool)
+            for chrom in val_chroms:
+                val_index = val_index | (chroms == chrom)
 
             train_index = np.logical_not(val_index)
             print(
-                "splitting finished: there are {} samples in val and {} samples in train".format(
-                    val_index.sum(), train_index.sum()
+                "splitting finished: using chromosomes {} for validation, {} samples in val and {} samples in train".format(
+                    val_chroms, val_index.sum(), train_index.sum()
                 )
             )
 
