@@ -12,3 +12,4 @@ archive*
 *.backup
 scripts/makebashfrommd.py
 scripts/Compare_models
+scripts/Analyze_model/Analysis_pipeline.ipynb
