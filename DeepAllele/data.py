@@ -62,6 +62,7 @@ def load_h5(
     seed=42,
     split_by_chrom=False,
     val_chroms=None,
+    num_workers=8
 ):
     """[summary]
     load h5 file into dataloader
@@ -170,11 +171,11 @@ def load_h5(
     val_dataset = TensorDataset(x_all[val_index], y_all[val_index])
 
     trainloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=32
+        train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
     )
     # never shuffle the validation data
     valloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=32
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
 
     return trainloader, valloader, train_peak_name, val_peak_name

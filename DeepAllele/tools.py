@@ -245,10 +245,18 @@ def information_content(pwm, pseudocount=0.001, background=[0.25, 0.25, 0.25, 0.
     raise NotImplementedError
 
 
-def load_saved_model(ckpt_path,mh_or_sh): 
+def load_saved_model(ckpt_path,mh_or_sh,map_location = None): 
+    
+    if map_location is not None:
+        if isinstance(map_location, int):
+            if map_location >= 0:
+                map_location = f'cuda:{map_location}'
+            else:
+                map_location = 'cpu'
+
     if mh_or_sh == 'mh': 
-        curr_model = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(ckpt_path)
+        curr_model = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(ckpt_path, map_location=map_location)
     elif mh_or_sh == 'sh': 
-        curr_model = model.SingleHeadResidualCNN.load_from_checkpoint(ckpt_path)
+        curr_model = model.SingleHeadResidualCNN.load_from_checkpoint(ckpt_path, map_location=map_location)
     curr_model.eval()
     return curr_model

@@ -60,7 +60,7 @@ def get_predictions(save_dir, ckpt_path, seqs_path, mh_or_sh='mh',device=0,batch
     os.makedirs(save_dir,exist_ok=True)
     seqs_all = np.load(seqs_path)    
 
-    model = tools.load_saved_model(ckpt_path, mh_or_sh)
+    model = tools.load_saved_model(ckpt_path, mh_or_sh, map_location = f'cuda:{device}' if device>=0 else 'cpu')
     trainer = pl.Trainer(
     devices=[device] if device>=0 else None,  
     accelerator="gpu" if device>=0  else "cpu", 

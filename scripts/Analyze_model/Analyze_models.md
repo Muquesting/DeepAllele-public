@@ -49,14 +49,15 @@ Extract arrays from the hdf5 files.
 hdf5_path=${datadir}$<Name of hdf5 file>
 
 # batch_id is used to select which dataset to load in from the ATAC hdf5 file.
-To load the data from the paper:
-van der Veeken, J. et al. Natural genetic variation reveals key features of epigenetic and transcriptional memory in virus-specific CD8 T cells.
-Immunity 50, 1202-1217.e7 (2019).
-use batch_id=sum
-To load the data from the paper:
-Chowdhary, K., Léon, J., Ramanan, D., Mathis, D. & Benoist, C. An interwoven network of transcription factors, with divergent influences from FoxP3, underlies Treg diversity.
-bioRxiv 2023.05.18.541358 (2023) doi:10.1101/2023.05.18.541358.
-use batch_id=sc
+# To load the data from the paper:
+#van der Veeken, J. et al. Natural genetic variation reveals key features of epigenetic and transcriptional memory in virus-specific CD8 T cells.
+# Immunity 50, 1202-1217.e7 (2019).
+# use:
+batch_id=sum
+#To load the data from the paper:
+# Chowdhary, K., Léon, J., Ramanan, D., Mathis, D. & Benoist, C. An interwoven network of transcription factors, with divergent influences from FoxP3, underlies Treg diversity.bioRxiv 2023.05.18.541358 (2023) doi:10.1101/2023.05.18.541358.
+#use:
+batch_id=sc
 
 python ${intdir}get_predictions.py --which_fn save_seqs_obs_labels --save_dir ${datadir} --hdf5_path ${hdf5_path} --batch_id ${batch_id}
 # Returns
@@ -356,5 +357,4 @@ affclusterstats=ISM_avg_variant_effect_mainvar_in_mh_grad_attribs_seqlets.cut1.9
 ```
 python ${intdir}plot_pwm_tree.py $clustermotifs --set $affclusterstats --savefig ${affclusterstats%.txt} --reverse_complement --pwmfeatures $affclusterstats barplot=True+ylabel='% affected by variant' --pwmnames $clustertfname
 ```
-
 

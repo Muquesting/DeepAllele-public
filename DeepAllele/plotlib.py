@@ -54,7 +54,9 @@ def _plot_attribution(att, ax, nts = list('ACGT'), labelbottom=False, bottom_axi
     if xticklabels is not None:
         ax.set_xticklabels(xticklabels)
 
-def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, unit=0.04, height_scale = 25, xticks = None, xticklabels = None, ylim = None):
+def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = True, 
+                     nts = list('ACGT'), plot_effect_difference = True, plot_difference = True, 
+                     unit=0.04, height_scale = 25, xticks = None, xticklabels = None, ylim = None):
     '''
     Plots attributions of two sequences and illustrates the variant effect sizes
     
@@ -72,8 +74,19 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
         if True, only the attributions at a present base are shown. Otherwise, 
         also attributions from bases that are not present in the sequence. This
         can be helpful to spot motifs that would be preferred by the model.
+    nts: 
+        List of nucleotide labels (e.g. ['A', 'C', 'G', 'T'])
+    plot_effect_difference: 
+        If True, plot the effect difference between the two attributions at the positions where the sequence differs
+    plot_difference: 
+        If True, plot the difference between the two attribution maps
+    unit: 
+        Size of a single base in the plot
+    height_scale: 
+        Scale factor for the height of the plot to a single base
     
-    TODO: 
+
+    TODO:
         Automatically set xlim
         Use matplotlib axgrid to make space for heatmaps smaller
     '''
@@ -131,7 +144,7 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
     spec = fig.add_gridspec(ncols=1, nrows=gN)
     
     ax0 =  fig.add_subplot(spec[:ah,:])
-    _plot_attribution(attA, ax0, ylabel = 'B6', ylim = attlim)
+    _plot_attribution(attA, ax0, ylabel = 'B6', ylim = attlim, nts = nts)
     
 
     if motifs is not None:
@@ -146,7 +159,7 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
         ax0b.imshow(pbattA.T, vmin = -pbvlim, vmax = pbvlim, cmap = 'coolwarm_r', aspect = 'auto')
 
     ax1 =fig.add_subplot(spec[ah+buff+(4+buff)*int(add_perbase):2*ah+buff+(4+buff)*int(add_perbase),:])
-    _plot_attribution(attB, ax1, ylabel = 'CAST', ylim = attlim)
+    _plot_attribution(attB, ax1, ylabel = 'CAST', ylim = attlim, nts = nts)
     
     if motifs is not None:
         mask = motifs[:,-2] == 1
@@ -166,11 +179,11 @@ def plot_attribution(seq, att, add_perbase = False, motifs = None, seq_based = T
         if plot_effect_difference:
             sumeffect = np.sum(fracAB*np.absolute(seqAB), axis = 1)
             fraclim = [min(np.amin(sumeffect),attlim[0]), max(np.amax(sumeffect),attlim[1])]
-            _plot_attribution(fracAB*np.absolute(seqAB),axf, labelbottom = not add_perbase, bottom_axis = not add_perbase, ylabel = 'Effect\nsize', ylim = fraclim, xticks = xticks, xticklabels=xticklabels)
+            _plot_attribution(fracAB*np.absolute(seqAB),axf, labelbottom = not add_perbase, bottom_axis = not add_perbase, ylabel = 'Effect\nsize', ylim = fraclim, xticks = xticks, xticklabels=xticklabels, nts = nts)
         else:
             sumeffect = np.sum(fracAB, axis = 1)
             fraclim = [min(np.amin(sumeffect),attlim[0]), max(np.amax(sumeffect),attlim[1])]
-            _plot_attribution(fracAB,axf, labelbottom = not add_perbase, bottom_axis = not add_perbase, ylabel = 'Effect\nsize', ylim = fraclim, xticks = xticks, xticklabels=xticklabels)
+            _plot_attribution(fracAB,axf, labelbottom = not add_perbase, bottom_axis = not add_perbase, ylabel = 'Effect\nsize', ylim = fraclim, xticks = xticks, xticklabels=xticklabels,nts = nts)
 
         if add_perbase:
             axfb =  fig.add_subplot(spec[3*(ah+buff)+2*(4+buff)*int(add_perbase):3*(ah+buff)+2*(4+buff)*int(add_perbase)+4,:])
@@ -1219,42 +1232,73 @@ def plot_boxplot(data, labels=None, motif=None, title = None, save_path=None, ho
         plt.savefig(save_path)
     plt.show()
 
-def scatter_plot(x, y, motif = None, xlabel='X', ylabel='Y', title=None, size = 5, alpha = 1.,
-                 color = 'grey', lw = 0, cmap = 'viridis', contour = False ,save_path=None):
+def scatter_plot(x, y, motif = None, xlabel='X', ylabel='Y', 
+                 title=None, size = 5, alpha = 1.,
+                 color = 'grey', lw = 0, cmap = 'viridis', 
+                 contour = False, colorbar = False, ax = None
+                ):
     """Create a scatter plot of x vs y.
     and if given, put the sequence logo above the plot.
-    Args:"""
+    Args:
+        x: x-coordinates of the points
+        y: y-coordinates of the points
+        motif: motif to plot as a logo, f.e. sequence motif
+        xlabel: label for the x-axis
+        ylabel: label for the y-axis
+        title: title of the plot
+        size: size of the points
+        alpha: transparency of the points
+        color: color of the points
+        lw: linewidth of the points
+        cmap: colormap for the points
+        contour: whether to add a contour plot on top of the scatter plot
+        colorbar: whether to add a colorbar
+        ax: matplotlib axis to plot on, if None, fig will be created
+    """
+
+    if ax is None:
+        if motif is not None:
+            fig, axes = plt.subplots(2, 1, figsize=(4, 5), gridspec_kw={'height_ratios': [1, 4]})
+        else:
+            fig, ax = plt.subplots(figsize=(4, 4))
+
     x = np.array(x)
     y = np.array(y)
     if len(x) != len(y):
         raise ValueError("x and y must have the same length.")
     if len(x) == 0 or len(y) == 0:
         raise ValueError("x and y must not be empty.")
+    
     if np.isnan(x).any() or np.isnan(y).any():
         raise ValueError("x and y must not contain NaN values.")
     if np.isinf(x).any() or np.isinf(y).any():
         raise ValueError("x and y must not contain infinite values.")
 
+
     if isinstance(color, str):
         if color == 'density':
+            colorbar = True
             # Calculate the density of points with gaussian kernel density estimation
             from scipy.stats import gaussian_kde
             xy = np.vstack([x, y])
             z = gaussian_kde(xy[:,:3000])(xy)
+
             color = (z - np.min(z)) / (np.max(z) - np.min(z))  # Normalize density values to [0, 1]
     elif isinstance(color, (list, np.ndarray)):
         if len(color) != len(x):
             raise ValueError("color must have the same length as x and y.")
         color = np.array(color)
-        if np.isnan(color).any():
-            raise ValueError("color must not contain NaN values.")
-        if np.isinf(color).any():
-            raise ValueError("color must not contain infinite values.")
+        # Only check for NaN/Inf if color is numeric
+        if np.issubdtype(color.dtype, np.number):
+            if np.isnan(color).any():
+                raise ValueError("color must not contain NaN values.")
+            if np.isinf(color).any():
+                raise ValueError("color must not contain infinite values.")
     
     if contour:
         from scipy.stats import gaussian_kde
         xy = np.vstack([x, y])
-        z = gaussian_kde(xy)(xy)
+        z = gaussian_kde(xy[:,np.random.permutation(xy.shape[1])[:3000]])(xy)
         z = (z - np.min(z)) / (np.max(z) - np.min(z))
         
 
@@ -1262,7 +1306,6 @@ def scatter_plot(x, y, motif = None, xlabel='X', ylabel='Y', title=None, size = 
     # Create a figure with two subplots: one for the logo and one for the scatter plot
     # The logo will be created using logomaker
     if motif is not None:
-        fig, axes = plt.subplots(2, 1, figsize=(4, 5), gridspec_kw={'height_ratios': [1, 4]})
         motif = np.log2((motif + 1e-16)/0.25)  # Convert motif to log2 scale
         channels = ['A', 'C', 'G', 'T']
         motif[motif<0] = 0
@@ -1276,8 +1319,6 @@ def scatter_plot(x, y, motif = None, xlabel='X', ylabel='Y', title=None, size = 
             ax.set_title(title)
         ax = axes[1]
     else:
-        fig = plt.figure(figsize=(4, 4))
-        ax = fig.add_subplot(111)
         if title is not None:
             ax.set_title(title)
     ax.spines['top'].set_visible(False)
@@ -1286,14 +1327,13 @@ def scatter_plot(x, y, motif = None, xlabel='X', ylabel='Y', title=None, size = 
     ax.plot([0,0], ax.get_ylim(), color='black', linestyle='--', linewidth=0.5, zorder=-1)
     ax.plot(ax.get_xlim(), [0,0], color='black', linestyle='--', linewidth=0.5, zorder=-1)
     if contour:
-        from matplotlib.colors import Normalize
-        norm = Normalize(vmin=np.min(z), vmax=np.max(z))
-        contour = ax.tricontourf(x, y, z, levels=10, cmap=cmap, norm=norm, alpha=0.5)
+        #from matplotlib.colors import Normalize
+        #norm = Normalize(vmin=np.min(z), vmax=np.max(z))
+        contour = ax.tricontourf(x, y, z, levels=10, linewidths=0.5, colors='k', zorder=1, alpha=0.5)
+    if colorbar:
         fig.colorbar(contour, ax=ax, label='Density', orientation='vertical')
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     corr = pearsonr(x, y)[0]
     ax.legend([scat], [f'Pearson r = {corr:.2f}'], loc='upper left', fontsize=8)
-    if save_path:
-        plt.savefig(save_path, dpi=100, bbox_inches='tight')
-    plt.show()
+    return fig 

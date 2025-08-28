@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 from deeplift.dinuc_shuffle import dinuc_shuffle
 from DeepAllele import model, tools, surrogate_model
 
-def get_surrogate_model(ckpt_path):
+def get_surrogate_model(ckpt_path, device = None):
     """
     Captum DeepLift does not allow for reuse of ReLU module, which is part of Deepallele's architecture. 
     To deal with this, we create a surrogate model for interpretation with the same weights as a provided deepallele model, 
@@ -22,8 +22,14 @@ def get_surrogate_model(ckpt_path):
 
     Returns: Surrogate model with identical performance to the one found at ckpt_path, but no reuse of ReLU module. 
     """
-    # load original model from ckpt 
-    orig = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(ckpt_path)
+        # load original model from ckpt 
+    if device is not None:
+        if isinstance(device, int):
+            if device >= 0:
+                device = f'cuda:{device}'
+            else:
+                device = 'cpu'
+    orig = model.SeparateMultiHeadResidualCNN.load_from_checkpoint(ckpt_path, map_location=device)
     surrogate = surrogate_model.SeparateMultiHeadResidualCNN_DeepliftSurrogate(
         kernel_number=orig.hparams['kernel_number'],
         kernel_length=orig.hparams['kernel_length'],
@@ -84,7 +90,7 @@ def get_gradient_based_attributions(x, model, baseline,attrib_type='deeplift',ta
         attributions = attributions.detach().cpu().numpy()
 
     if attrib_type=='ig': 
-        ig = IntegratedGradients(model)
+        ig = IntegratedGradients(model, multiply_by_inputs=multiply_by_inputs)
         attributions = ig.attribute(x,baselines=baseline,return_convergence_delta=False,target=target_idx,n_steps=n_steps,internal_batch_size=internal_batch_size)
         attributions = attributions.detach().cpu().numpy()
     
@@ -119,9 +125,11 @@ def save_gradient_based_attributions(save_dir, ckpt_path, seqs_path, mh_or_sh='m
     seqs_all = np.load(seqs_path) 
     print(f'sequences shape: {seqs_all.shape}')
         
-    model = tools.load_saved_model(ckpt_path, mh_or_sh)
+    
     if mh_or_sh == 'mh': 
-         model = get_surrogate_model(ckpt_path)
+         model = get_surrogate_model(ckpt_path, device=device)
+    elif mh_or_sh == 'sh':
+        model = tools.load_saved_model(ckpt_path, mh_or_sh, map_location=f'cuda:{device}' if device>=0 else 'cpu')
 
     if device>=0: 
         print(f'Using GPU {device}')
