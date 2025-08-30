@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 import argparse
+#from Bio.Align import PairwiseAligner
 from Bio import pairwise2
 import torch
 from DeepAllele import tools
@@ -109,6 +110,13 @@ def alignments_onehot(seq1, seq2):
     """
     seq1 = tools.reversed_onehot(seq1)
     seq2 = tools.reversed_onehot(seq2)
+    
+    #aln = PairwiseAligner()
+    #aln.mode = 'global'
+    #aln.open_gap_score = -0.5
+    #aln.extend_gap_score = -0.1
+    #alignments = aln.align(seq1, seq2)[0]
+
     alignments = pairwise2.align.globalxs(seq1, seq2, -0.5, -0.1)[0]
     seq1 = tools.onehot_encoding(alignments.seqA, len(alignments.seqA))
     seq2 = tools.onehot_encoding(alignments.seqB, len(alignments.seqB))
@@ -171,8 +179,8 @@ def get_ism(save_dir, seqs_path, ckpt_path, device):
     if 'aligned_seqs.npy' not in os.listdir(save_dir):
         print('saving aligned seqs')
         save_aligned_seqs(save_dir,seqs_path)      
-    
-    model = tools.load_saved_model(ckpt_path, mh_or_sh='mh')
+
+    model = tools.load_saved_model(ckpt_path, mh_or_sh='mh', map_location=device)
 
     if device>=0: 
         print(f'Using GPU {device}')
