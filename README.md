@@ -43,6 +43,65 @@ conda activate DeepAllele
 pip install -e .
 ```
 
+## Development and Deployment Workflow (macOS + Gadi)
+
+Recommended pattern: develop on macOS, push to GitHub; on Gadi, only pull and run.
+
+macOS (fast local dev, CPU/MPS):
+
+```bash
+# From repo root
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements-mac.txt
+pip install -e .
+# Optional: quick check
+python -c "import torch; print(torch.__version__); print('MPS?', torch.backends.mps.is_available())"
+```
+
+Gadi (GPU runs, minimal footprint):
+
+```bash
+# Load site modules (adjust versions to what's available)
+module load cuda/11.8  # or cuda/12.1
+module load python/3.10
+
+# Create venv in a quota-friendly location
+python -m venv $PROJECT/venvs/deepallele
+source $PROJECT/venvs/deepallele/bin/activate
+python -m pip install --upgrade pip
+
+# Get code (pull if already cloned)
+mkdir -p $PROJECT/repos
+git -C $PROJECT/repos/DeepAllele-public pull || \
+  git clone git@github.com:Muquesting/DeepAllele-public.git $PROJECT/repos/DeepAllele-public
+cd $PROJECT/repos/DeepAllele-public
+
+# Install Python deps (Torch installed separately for correct CUDA)
+pip install -r requirements-linux-gpu.txt
+# Pick ONE CUDA index URL matching the loaded CUDA
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# For CUDA 12.1 instead:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Sanity check GPU
+python -c "import torch; print('CUDA?', torch.cuda.is_available());\
+ print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no gpu')"
+```
+
+Syncing code:
+- On macOS: commit and push changes
+- On Gadi: `git pull` in the repo, then re-run as needed
+
+Locking environments for reproducibility:
+```bash
+# On macOS
+pip freeze > requirements-mac.lock.txt
+# On Gadi
+pip freeze > requirements-linux-gpu.lock.txt
+```
+
 ## Download trained model checkpoints and data
 
 We provide trained model checkpoints and processed data for reproducibility. All data is available through figshare.([figshare data link](https://doi.org/10.6084/m9.figshare.28694384))

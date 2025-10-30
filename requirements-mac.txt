@@ -1,0 +1,19 @@
+# Minimal dev environment for macOS (CPU/MPS)
+# Installs package deps plus macOS Torch stack.
+
+numpy<2
+pandas>=1.4,<2.1
+matplotlib>=3.5,<3.8
+scipy>=1.9,<1.12
+scikit-learn>=1.1,<1.4
+h5py>=3.7,<3.10
+pytorch-lightning==1.7.2
+captum==0.5.0
+biopython>=1.79,<1.85
+einops>=0.4.1,<0.7
+joblib>=1.2,<1.4
+tqdm>=4.64,<5
+# macOS ARM/Intel gets CPU+MPS from PyPI
+torch==1.12.1
+torchvision==0.13.0
+torchaudio==0.12.1
